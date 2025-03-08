@@ -5,4 +5,11 @@
   gather_facts: false
   roles:
     - wait_connection
+
+- name: Setup iSCSI
+  hosts: iscsi
+  become: true
+  gather_facts: false
+  roles:
+    - disk_label
 ...

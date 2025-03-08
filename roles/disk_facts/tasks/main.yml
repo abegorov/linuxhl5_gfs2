@@ -1,0 +1,23 @@
+---
+- name: Gathering lsblk facts
+  ansible.builtin.command: lsblk --all --output-all --list --json
+  changed_when: false
+  register: disk_facts_lsblk
+
+- name: Parse lsblk facts
+  ansible.builtin.set_fact:
+    disk_facts_lsblk: '{{ (disk_facts_lsblk.stdout |
+      ansible.builtin.from_json).blockdevices }}'
+
+- name: Getting disks signatures
+  ansible.builtin.command: wipefs --no-act --json {{ ["/dev/"] |
+    ansible.builtin.product(disk_facts_lsblk | map(attribute="kname")) |
+    map("join") | join(" ") }}
+  changed_when: false
+  register: disk_facts_sigs
+
+- name: Parse disks signatures
+  ansible.builtin.set_fact:
+    disk_facts_sigs: '{{ (disk_facts_sigs.stdout |
+      ansible.builtin.from_json).signatures }}'
+...
