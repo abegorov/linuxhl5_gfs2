@@ -2,7 +2,6 @@
 # vi: set ft=ruby :
 
 ENV['ANSIBLE_CALLBACK_RESULT_FORMAT'] = 'yaml'
-ENV['VAGRANT_EXPERIMENTAL'] = 'disks'
 
 DEFAULT_MACHINE = {
   :domain => 'internal',
@@ -19,15 +18,31 @@ DEFAULT_MACHINE = {
 MACHINES = {
   :'iscsi-01' => {
     :disks => { :disk01 => '10GB' },
-    :networks => { :private_network => { :ip => '192.168.56.11' } },
+    :intnets => {
+      :iscsi1 => { :ip => '10.130.1.11' },
+      :iscsi2 => { :ip => '10.130.2.11' },
+    },
+    :networks => { :private_network => { :ip => '192.168.56.12' } },
   },
   :'gfs-01' => {
+    :intnets => {
+      :iscsi1 => { :ip => '10.130.1.12' },
+      :iscsi2 => { :ip => '10.130.2.12' },
+    },
     :networks => { :private_network => { :ip => '192.168.56.12' } },
   },
   :'gfs-02' => {
+    :intnets => {
+      :iscsi1 => { :ip => '10.130.1.13' },
+      :iscsi2 => { :ip => '10.130.2.13' },
+    },
     :networks => { :private_network => { :ip => '192.168.56.13' } },
   },
   :'gfs-03' => {
+    :intnets => {
+      :iscsi1 => { :ip => '10.130.1.14' },
+      :iscsi2 => { :ip => '10.130.2.14' },
+    },
     :networks => { :private_network => { :ip => '192.168.56.14' } },
   },
 }
@@ -38,7 +53,9 @@ ANSIBLE_GROUPS = {
 }
 ANSIBLE_HOSTVARS = MACHINES.keys.each_with_object({}) {
   |key, obj| obj[key] = {
-    'ip_address' => MACHINES[key][:networks][:private_network][:ip]
+    'ip_address' => MACHINES[key][:networks][:private_network][:ip],
+    'ip_address_iscsi1' => MACHINES[key][:intnets][:iscsi1][:ip],
+    'ip_address_iscsi2' => MACHINES[key][:intnets][:iscsi2][:ip],
   }
 }
 
