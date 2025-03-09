@@ -12,4 +12,5 @@
   gather_facts: false
   roles:
     - disk_label
+    - targetcli
 ...

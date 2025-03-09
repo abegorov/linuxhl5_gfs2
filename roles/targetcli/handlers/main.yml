@@ -1,0 +1,5 @@
+---
+- name: Restore LIO kernel target configuration
+  ansible.builtin.command: /usr/bin/targetctl restore
+  changed_when: true
+...

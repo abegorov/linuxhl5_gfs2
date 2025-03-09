@@ -1,0 +1,19 @@
+---
+- name: Install targetcli
+  ansible.builtin.apt:
+    name: targetcli-fb
+    state: present
+
+- name: Configure targetcli
+  ansible.builtin.template:
+    src: savedconfig.j2
+    dest: /etc/rtslib-fb-target/saveconfig.json
+    lstrip_blocks: true
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Restore LIO kernel target configuration
+
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers
+...

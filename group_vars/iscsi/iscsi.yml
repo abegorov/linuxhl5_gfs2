@@ -1,0 +1,37 @@
+---
+disk_label_labels: ['{{ iscsi_disk01_label }}']
+
+iscsi_disk01_label: disk01
+
+targetcli_fabric_modules:
+  - name: iscsi
+    discovery_enable_auth: true
+    discovery_userid: '{{ iscsi_discovery_userid }}'
+    discovery_password: '{{ iscsi_discovery_password }}'
+    discovery_mutual_userid: '{{ iscsi_discovery_mutual_userid }}'
+    discovery_mutual_password: '{{ iscsi_discovery_mutual_password }}'
+
+targetcli_storage_objects:
+  - dev: /dev/disk/by-partlabel/{{ iscsi_disk01_label }}
+    name: '{{ iscsi_disk01_label }}'
+    plugin: block
+    readonly: false
+    write_back: false
+    wwn: '{{ lookup("ansible.builtin.password",
+      "secrets/iscsi_{{ inventory_hostname }}_disk01_wwn.txt") |
+      ansible.builtin.to_uuid }}'
+
+targetcli_targets:
+  - wwn: iqn.2025-03.ru.abegorov:gfs2:{{ inventory_hostname }}
+    tpgs:
+      - luns:
+          - alias: '{{ lookup("ansible.builtin.password",
+              "secrets/iscsi_{{ inventory_hostname }}_tpg1_lun1.txt",
+              chars="01234567890abcdef", length=10) }}'
+            storage_object: /backstores/block/{{ iscsi_disk01_label }}
+        node_acls: '{{ groups["gfs"] | map("ansible.builtin.extract",
+          hostvars, "iscsi_node_acl") }}'
+        portals:
+          - ip_address: '{{ ip_address_iscsi1 }}'
+          - ip_address: '{{ ip_address_iscsi2 }}'
+...
