@@ -1,53 +1,53 @@
-{% set config = targetcli_config %}
+{% set config = target_config %}
 {% for fabric_module in config.fabric_modules %}
   {%
-    set _ = fabric_module.update(targetcli_default_fabric_module |
+    set _ = fabric_module.update(target_default_fabric_module |
       ansible.builtin.combine(fabric_module, recursive=True))
   %}
 {% endfor %}
 {% for storage_object in config.storage_objects %}
   {%
-    set _ = storage_object.update(targetcli_default_storage_object |
+    set _ = storage_object.update(target_default_storage_object |
       ansible.builtin.combine(storage_object, recursive=True))
   %}
   {% for alua_tpg in storage_object.alua_tpgs %}
     {%
-      set _ = alua_tpg.update(targetcli_default_alua_tpg |
+      set _ = alua_tpg.update(target_default_alua_tpg |
         ansible.builtin.combine(alua_tpg, recursive=True))
     %}
   {% endfor %}
 {% endfor %}
 {% for target in config.targets %}
   {%
-    set _ = target.update(targetcli_default_target |
+    set _ = target.update(target_default_target |
       ansible.builtin.combine(target, recursive=True))
   %}
   {% for tpg in target.tpgs %}
     {%
-      set _ = tpg.update(targetcli_default_tpg |
+      set _ = tpg.update(target_default_tpg |
         ansible.builtin.combine(tpg, recursive=True))
     %}
     {% for lun in tpg.luns %}
       {%
-        set _ = lun.update(targetcli_default_lun |
+        set _ = lun.update(target_default_lun |
           ansible.builtin.combine(lun, recursive=True))
       %}
     {% endfor %}
     {% for node_acl in tpg.node_acls %}
       {%
-        set _ = node_acl.update(targetcli_default_node_acl |
+        set _ = node_acl.update(target_default_node_acl |
           ansible.builtin.combine(node_acl, recursive=True))
       %}
       {% for mapped_lun in node_acl.mapped_luns %}
         {%
-          set _ = mapped_lun.update(targetcli_default_mapped_lun |
+          set _ = mapped_lun.update(target_default_mapped_lun |
             ansible.builtin.combine(mapped_lun, recursive=True))
         %}
       {% endfor %}
     {% endfor %}
     {% for portal in tpg.portals %}
       {%
-        set _ = portal.update(targetcli_default_portal |
+        set _ = portal.update(target_default_portal |
           ansible.builtin.combine(portal, recursive=True))
       %}
     {% endfor %}

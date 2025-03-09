@@ -3,7 +3,7 @@
 Пример настройки сервера:
 
 ```yaml
-targetcli_fabric_modules:
+target_fabric_modules:
   - name: iscsi
     discovery_enable_auth: true
     discovery_userid: '{{ iscsi_discovery_userid }}'
@@ -11,7 +11,7 @@ targetcli_fabric_modules:
     discovery_mutual_userid: '{{ iscsi_discovery_mutual_userid }}'
     discovery_mutual_password: '{{ iscsi_discovery_mutual_password }}'
 
-targetcli_storage_objects:
+target_storage_objects:
   - dev: /dev/disk/by-partlabel/{{ iscsi_disk01_label }}
     name: '{{ iscsi_disk01_label }}'
     plugin: block
@@ -21,7 +21,7 @@ targetcli_storage_objects:
       "secrets/iscsi_{{ inventory_hostname }}_disk01_wwn.txt") |
       ansible.builtin.to_uuid }}'
 
-targetcli_targets:
+target_targets:
   - wwn: iqn.2025-03.ru.abegorov:gfs2:{{ inventory_hostname }}
     tpgs:
       - luns:

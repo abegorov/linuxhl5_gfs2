@@ -1,14 +1,14 @@
 ---
-targetcli_config:
-  fabric_modules: '{{ targetcli_fabric_modules }}'
-  storage_objects: '{{ targetcli_storage_objects }}'
-  targets: '{{ targetcli_targets }}'
+target_config:
+  fabric_modules: '{{ target_fabric_modules }}'
+  storage_objects: '{{ target_storage_objects }}'
+  targets: '{{ target_targets }}'
 
-targetcli_fabric_modules: []
-targetcli_storage_objects: []
-targetcli_targets: []
+target_fabric_modules: []
+target_storage_objects: []
+target_targets: []
 
-targetcli_default_fabric_module:
+target_default_fabric_module:
   name: iscsi
   discovery_enable_auth: true
   discovery_userid: ''
@@ -16,8 +16,8 @@ targetcli_default_fabric_module:
   discovery_mutual_userid: ''
   discovery_mutual_password: ''
 
-targetcli_default_storage_object:
-  alua_tpgs: ['{{ targetcli_default_alua_tpg }}']
+target_default_storage_object:
+  alua_tpgs: ['{{ target_default_alua_tpg }}']
   attributes:
     alua_support: 1
     block_size: 512
@@ -55,7 +55,7 @@ targetcli_default_storage_object:
   readonly: false
   write_back: false
 
-targetcli_default_alua_tpg:
+target_default_alua_tpg:
   alua_access_state: 0
   alua_access_status: 0
   alua_access_type: 3
@@ -73,13 +73,13 @@ targetcli_default_alua_tpg:
   tg_pt_gp_id: 0
   trans_delay_msecs: 0
 
-targetcli_default_target:
+target_default_target:
   fabric: iscsi
   parameters:
     cmd_completion_affinity: '-1'
   tpgs: []
 
-targetcli_default_tpg:
+target_default_tpg:
   attributes:
     authentication: 1
     cache_dynamic_acls: 1
@@ -119,14 +119,14 @@ targetcli_default_tpg:
     OFMarkInt: Reject
     OFMarker: 'No'
     TargetAlias: LIO Target
-  portals: ['{{ targetcli_default_portal }}']
+  portals: ['{{ target_default_portal }}']
   tag: 1
 
-targetcli_default_lun:
+target_default_lun:
   alua_tg_pt_gp_name: default_tg_pt_gp
   index: 1
 
-targetcli_default_node_acl:
+target_default_node_acl:
   attributes:
     authentication: -1
     dataout_timeout: 3
@@ -143,13 +143,13 @@ targetcli_default_node_acl:
   chap_mutual_password: ''
   mapped_luns: []
 
-targetcli_default_portal:
+target_default_portal:
   ip_address: 0.0.0.0
   iser: false
   offload: false
   port: 3260
 
-targetcli_default_mapped_lun:
+target_default_mapped_lun:
   - index: 1
     tpg_lun: 1
     write_protect: false
