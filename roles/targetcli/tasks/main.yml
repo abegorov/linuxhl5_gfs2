@@ -12,6 +12,7 @@
     owner: root
     group: root
     mode: '0600'
+  no_log: '{{ not debug }}'
   notify: Restore LIO kernel target configuration
 
 - name: Force all notified handlers to run at this point
