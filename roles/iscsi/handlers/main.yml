@@ -1,7 +1,7 @@
 ---
-- name: Restart iscsi service
+- name: Restart iscsid service
   ansible.builtin.systemd_service:
-    name: open-iscsi.service
+    name: iscsid.service
     state: restarted
   ignore_errors: '{{ ansible_check_mode }}'
 ...

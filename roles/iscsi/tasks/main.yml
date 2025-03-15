@@ -3,7 +3,6 @@
   ansible.builtin.apt:
     name: open-iscsi
     state: present
-  when: iscsi_initiator_name
 
 - name: Update initiator name
   ansible.builtin.copy:
@@ -14,7 +13,7 @@
     group: root
     mode: '0600'
   when: iscsi_initiator_name
-  notify: Restart iscsi service
+  notify: Restart iscsid service
 
 - name: Update iscsid configuration
   ansible.builtin.copy:
@@ -24,8 +23,19 @@
     group: root
     mode: '0600'
   no_log: '{{ not debug }}'
-  when: iscsi_initiator_name
-  notify: Restart iscsi service
+
+- name: Enable and start iscsid socket
+  ansible.builtin.systemd_service:
+    name: iscsid.socket
+    enabled: true
+    state: started
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: Enable open-iscsi service
+  ansible.builtin.systemd_service:
+    name: open-iscsi.service
+    enabled: true
+  ignore_errors: '{{ ansible_check_mode }}'
 
 - name: Force all notified handlers to run at this point
   ansible.builtin.meta: flush_handlers
