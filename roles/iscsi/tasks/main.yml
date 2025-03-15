@@ -1,0 +1,52 @@
+---
+- name: Install scsi initiator
+  ansible.builtin.apt:
+    name: open-iscsi
+    state: present
+  when: iscsi_initiator_name
+
+- name: Update initiator name
+  ansible.builtin.copy:
+    content: |
+      InitiatorName={{ iscsi_initiator_name }}
+    dest: /etc/iscsi/initiatorname.iscsi
+    owner: root
+    group: root
+    mode: '0600'
+  when: iscsi_initiator_name
+  notify: Restart iscsi service
+
+- name: Update iscsid configuration
+  ansible.builtin.copy:
+    content: '{{ iscsi_config }}'
+    dest: /etc/iscsi/iscsid.conf
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: '{{ not debug }}'
+  when: iscsi_initiator_name
+  notify: Restart iscsi service
+
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers
+
+- name: Perform a iSCSI discovery
+  community.general.open_iscsi:
+    portal: '{{ item }}'
+    discover: true
+  loop: '{{ iscsi_portals }}'
+
+- name: Connect to the iSCSI named target
+  community.general.open_iscsi:
+    login: true
+    target: '{{ item.target }}'
+    port: '{{ item.port | default(omit) }}'
+    node_user: '{{ item.node_user | default(omit) }}'
+    node_pass: '{{ item.node_pass | default(omit) }}'
+    node_user_in: '{{ item.node_user_in | default(omit) }}'
+    node_pass_in: '{{ item.node_pass_in | default(omit) }}'
+    auto_portal_startup: '{{ item.auto_portal_startup | default(omit) }}'
+    auto_node_startup: '{{ item.auto_node_startup | default(omit) }}'
+  no_log: '{{ not debug }}'
+  loop: '{{ iscsi_targets }}'
+...

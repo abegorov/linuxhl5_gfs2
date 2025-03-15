@@ -6,11 +6,18 @@
   roles:
     - wait_connection
 
-- name: Setup iSCSI
+- name: Setup iSCSI target
   hosts: iscsi
   become: true
   gather_facts: false
   roles:
     - disk_label
     - target
+
+- name: Setup iSCSI client
+  hosts: gfs
+  become: true
+  gather_facts: false
+  roles:
+    - iscsi
 ...

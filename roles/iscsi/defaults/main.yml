@@ -1,0 +1,57 @@
+---
+iscsi_initiator_name:
+iscsi_portals: []
+iscsi_targets: []
+
+iscsi_config: |
+  {%
+    set config = iscsi_config_default |
+      ansible.builtin.combine(iscsi_config_override)
+  %}
+  {% for key, value in config.items() %}
+  {% if value is boolean %}
+  {{- key }} = {{ 'Yes' if value else 'No' }}
+  {% else %}
+  {{- key }} = {{ value }}
+  {% endif %}
+  {% endfor %}
+iscsi_config_default:
+  iscsid.startup: /bin/systemctl start iscsid.socket
+  node.startup: automatic
+  node.leading_login: false
+  node.session.auth.authmethod: CHAP
+  node.session.auth.username:
+  node.session.auth.password:
+  node.session.auth.username_in:
+  node.session.auth.password_in:
+  discovery.sendtargets.auth.authmethod: CHAP
+  discovery.sendtargets.auth.username:
+  discovery.sendtargets.auth.password:
+  discovery.sendtargets.auth.username_in:
+  discovery.sendtargets.auth.password_in:
+  node.session.timeo.replacement_timeout: 120
+  node.conn[0].timeo.login_timeout: 15
+  node.conn[0].timeo.logout_timeout: 15
+  node.conn[0].timeo.noop_out_interval: 5
+  node.conn[0].timeo.noop_out_timeout: 5
+  node.session.err_timeo.abort_timeout: 15
+  node.session.err_timeo.lu_reset_timeout: 30
+  node.session.err_timeo.tgt_reset_timeout: 30
+  node.session.err_timeo.host_reset_timeout: 60
+  node.session.initial_login_retry_max: 8
+  node.session.cmds_max: 128
+  node.session.queue_depth: 32
+  node.session.iscsi.InitialR2T: false
+  node.session.iscsi.ImmediateData: true
+  node.session.iscsi.FirstBurstLength: 262144
+  node.session.iscsi.MaxBurstLength: 16776192
+  node.conn[0].iscsi.MaxRecvDataSegmentLength: 262144
+  node.conn[0].iscsi.MaxXmitDataSegmentLength: 0
+  discovery.sendtargets.iscsi.MaxRecvDataSegmentLength: 32768
+  node.session.nr_sessions: 1
+  node.session.reopen_max: 0
+  node.session.iscsi.FastAbort: false
+  node.session.scan: auto
+
+iscsi_config_override: {}
+...

@@ -1,36 +1,37 @@
 ---
-disk_label_labels: ['{{ iscsi_disk01_label }}']
+disk_label_labels: ['{{ target_disk01_label }}']
 
-iscsi_disk01_label: disk01
+target_disk01_label: disk01
 
 target_fabric_modules:
   - name: iscsi
     discovery_enable_auth: true
-    discovery_userid: '{{ iscsi_discovery_userid }}'
-    discovery_password: '{{ iscsi_discovery_password }}'
-    discovery_mutual_userid: '{{ iscsi_discovery_mutual_userid }}'
-    discovery_mutual_password: '{{ iscsi_discovery_mutual_password }}'
+    discovery_userid: '{{ target_discovery_userid }}'
+    discovery_password: '{{ target_discovery_password }}'
+    discovery_mutual_userid: '{{ target_discovery_mutual_userid }}'
+    discovery_mutual_password: '{{ target_discovery_mutual_password }}'
 
 target_storage_objects:
-  - dev: /dev/disk/by-partlabel/{{ iscsi_disk01_label }}
-    name: '{{ iscsi_disk01_label }}'
+  - dev: /dev/disk/by-partlabel/{{ target_disk01_label }}
+    name: '{{ target_disk01_label }}'
     plugin: block
     readonly: false
     write_back: false
     wwn: '{{ lookup("ansible.builtin.password",
-      "secrets/iscsi_{{ inventory_hostname }}_disk01_wwn.txt") |
+      "secrets/target_{{ inventory_hostname }}_disk01_wwn.txt") |
       ansible.builtin.to_uuid }}'
 
+target_wwn: iqn.2025-03.ru.abegorov:gfs2:{{ inventory_hostname }}
 target_targets:
-  - wwn: iqn.2025-03.ru.abegorov:gfs2:{{ inventory_hostname }}
+  - wwn: '{{ target_wwn }}'
     tpgs:
       - luns:
           - alias: '{{ lookup("ansible.builtin.password",
-              "secrets/iscsi_{{ inventory_hostname }}_tpg1_lun1.txt",
+              "secrets/target_{{ inventory_hostname }}_tpg1_lun1.txt",
               chars="01234567890abcdef", length=10) }}'
-            storage_object: /backstores/block/{{ iscsi_disk01_label }}
+            storage_object: /backstores/block/{{ target_disk01_label }}
         node_acls: '{{ groups["gfs"] | map("ansible.builtin.extract",
-          hostvars, "iscsi_node_acl") }}'
+          hostvars, "target_node_acl") }}'
         portals:
           - ip_address: '{{ ip_address_iscsi1 }}'
           - ip_address: '{{ ip_address_iscsi2 }}'

@@ -1,8 +1,8 @@
 ---
-iscsi_discovery_userid: discovery
-iscsi_discovery_password: '{{ lookup("ansible.builtin.password",
-  "secrets/iscsi_discovery_password.txt", length=26) }}'
-iscsi_discovery_mutual_userid: discovery_mutual
-iscsi_discovery_mutual_password: '{{ lookup("ansible.builtin.password",
-  "secrets/iscsi_discovery_mutual_password.txt", length=26) }}'
+target_discovery_userid: discovery
+target_discovery_password: '{{ lookup("ansible.builtin.password",
+  "secrets/target_discovery_password.txt", length=26) }}'
+target_discovery_mutual_userid: discovery_mutual
+target_discovery_mutual_password: '{{ lookup("ansible.builtin.password",
+  "secrets/target_discovery_mutual_password.txt", length=26) }}'
 ...
