@@ -15,6 +15,13 @@
   no_log: '{{ not debug }}'
   notify: Restore LIO kernel target configuration
 
+- name: Enable and start rtslib-fb-targetctl service
+  ansible.builtin.systemd_service:
+    name: rtslib-fb-targetctl.service
+    enabled: true
+    state: started
+  ignore_errors: '{{ ansible_check_mode }}'
+
 - name: Force all notified handlers to run at this point
   ansible.builtin.meta: flush_handlers
 ...
