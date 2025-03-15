@@ -1,0 +1,25 @@
+---
+- name: Install multipath-tools
+  ansible.builtin.apt:
+    name: multipath-tools
+    state: present
+
+- name: Update multipath configuration
+  ansible.builtin.copy:
+    content: '{{ mpath_config }}'
+    dest: /etc/multipath.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload multipathd service
+
+- name: Enable and start multipathd service
+  ansible.builtin.systemd_service:
+    name: multipathd.service
+    enabled: true
+    state: started
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers
+...

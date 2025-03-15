@@ -1,0 +1,7 @@
+---
+- name: Reload multipathd service
+  ansible.builtin.systemd_service:
+    name: multipathd.service
+    state: restarted
+  ignore_errors: '{{ ansible_check_mode }}'
+...

@@ -20,4 +20,5 @@
   gather_facts: false
   roles:
     - iscsi
+    - mpath
 ...
