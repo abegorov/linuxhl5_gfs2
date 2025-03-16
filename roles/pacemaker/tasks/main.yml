@@ -1,0 +1,34 @@
+---
+- name: Install pacemaker
+  ansible.builtin.apt:
+    name:
+      - pacemaker
+      - resource-agents-extra
+      - fence-agents-base
+      - fence-agents-extra
+      - pacemaker-cli-utils
+      - python3-pacemaker
+      - cluster-glue
+      - crmsh
+    update_cache: true
+    state: present
+
+- name: Update hacluster password
+  ansible.builtin.user:
+    name: hacluster
+    password: '{{ pacemaker_passwd_hash }}'
+
+- name: Enable and start services
+  ansible.builtin.systemd_service:
+    name: pcsd.service
+    enabled: true
+    state: started
+  loop:
+    - corosync.service
+    - pacemaker.service
+    - pcsd.service
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers
+...
