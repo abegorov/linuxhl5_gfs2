@@ -22,7 +22,7 @@ MACHINES = {
       :iscsi1 => { :ip => '10.130.1.11' },
       :iscsi2 => { :ip => '10.130.2.11' },
     },
-    :networks => { :private_network => { :ip => '192.168.56.12' } },
+    :networks => { :private_network => { :ip => '192.168.56.11' } },
   },
   :'gfs-01' => {
     :intnets => {
