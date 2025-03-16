@@ -1,0 +1,9 @@
+---
+- name: Update hosts
+  ansible.builtin.copy:
+    content: '{{ hosts_config }}'
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: '0644'
+...
