@@ -1,0 +1,8 @@
+---
+- name: Restart corosync service
+  ansible.builtin.systemd_service:
+    name: corosync.service
+    state: restarted
+  throttle: 1
+  ignore_errors: '{{ ansible_check_mode }}'
+...

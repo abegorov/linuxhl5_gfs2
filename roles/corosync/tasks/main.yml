@@ -1,0 +1,36 @@
+---
+- name: Install corosync
+  ansible.builtin.apt:
+    name: corosync
+    update_cache: true
+    state: present
+
+- name: Copy authkey
+  ansible.builtin.copy:
+    content: '{{ corosync_authkey }}'
+    dest: /etc/corosync/authkey
+    owner: root
+    group: root
+    mode: '0400'
+  no_log: '{{ not debug }}'
+  notify: Restart corosync service
+
+- name: Configure corosync
+  ansible.builtin.copy:
+    content: '{{ corosync_config }}'
+    dest: /etc/corosync/corosync.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart corosync service
+
+- name: Enable and start corosync service
+  ansible.builtin.systemd_service:
+    name: corosync.service
+    enabled: true
+    state: started
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers
+...
