@@ -2,6 +2,7 @@
 - name: Install scsi initiator
   ansible.builtin.apt:
     name: open-iscsi
+    update_cache: true
     state: present
 
 - name: Update initiator name
