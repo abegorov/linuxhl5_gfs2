@@ -1,0 +1,25 @@
+---
+corosync_authkey: '{{ lookup("ansible.builtin.file",
+  corosync_authkey_path) | ansible.builtin.b64decode }}'
+corosync_authkey_path: "secrets/corosync_authkey.txt"
+corosync_cluster_name: gfs2
+corosync_cluster_uuid: '{{ lookup("ansible.builtin.password",
+  "secrets/corosync_cluster_uuid.txt", chars="01234567890abcdef",
+  length=32) }}'
+corosync_node:
+  key: '{{ inventory_hostname }}'
+  value:
+    - '{{ ip_address}}'
+    - '{{ ip_address_iscsi1 }}'
+    - '{{ ip_address_iscsi2 }}'
+corosync_nodelist: '{{ groups["gfs"] |
+  map("ansible.builtin.extract", hostvars, "corosync_node") |
+  ansible.builtin.items2dict }}'
+corosync_interfaces: [{}, {}, {}]
+
+gen_keys_keys:
+  - path: '{{ corosync_authkey_path }}'
+
+pacemaker_passwd_hash:  '{{ lookup("ansible.builtin.password",
+  "secrets/pacemaker_password.txt", length=26, encrypt="bcrypt") }}'
+...
