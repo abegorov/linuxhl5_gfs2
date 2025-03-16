@@ -1,0 +1,9 @@
+---
+- name: Install GFS2
+  ansible.builtin.apt:
+    name:
+      - gfs2-utils
+      - lvm2-lockd
+    update_cache: true
+    state: present
+...
