@@ -5,6 +5,8 @@
   gather_facts: false
   roles:
     - wait_connection
+    - hosts
+    - gen_keys
 
 - name: Setup iSCSI target
   hosts: iscsi
@@ -14,11 +16,14 @@
     - disk_label
     - target
 
-- name: Setup iSCSI client
+- name: Setup GFS
   hosts: gfs
   become: true
   gather_facts: false
   roles:
     - iscsi
     - mpath
+    - gfs2
+    - corosync
+    - pacemaker
 ...
