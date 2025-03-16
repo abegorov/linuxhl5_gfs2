@@ -3,6 +3,7 @@
   ansible.builtin.apt:
     name: targetcli-fb
     update_cache: true
+    cache_valid_time: 3600
     state: present
 
 - name: Configure targetcli

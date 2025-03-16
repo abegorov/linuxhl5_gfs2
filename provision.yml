@@ -5,6 +5,7 @@
   gather_facts: false
   roles:
     - wait_connection
+    - apt_sources
     - hosts
     - gen_keys
 
