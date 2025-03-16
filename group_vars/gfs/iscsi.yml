@@ -7,15 +7,21 @@ iscsi_config_override:
     target_discovery_mutual_userid }}'
   discovery.sendtargets.auth.password_in: '{{
     target_discovery_mutual_password }}'
+  node.session.auth.username: '{{ target_node_acl.chap_userid }}'
+  node.session.auth.password: '{{ target_node_acl.chap_password }}'
+  node.session.auth.username_in: '{{ target_node_acl.chap_mutual_userid }}'
+  node.session.auth.password_in: '{{ target_node_acl.chap_mutual_password }}'
 iscsi_portals:
   - '{{ hostvars["iscsi-01"].ip_address_iscsi1 }}'
   - '{{ hostvars["iscsi-01"].ip_address_iscsi2 }}'
 iscsi_targets:
   - target: '{{ hostvars["iscsi-01"].target_wwn }}'
-    node_user: '{{ target_node_acl.chap_userid }}'
-    node_pass: '{{ target_node_acl.chap_password }}'
-    node_user_in: '{{ target_node_acl.chap_mutual_userid }}'
-    node_pass_in: '{{ target_node_acl.chap_mutual_password }}'
+
+mpath_reservation_key: '{{ lookup("ansible.builtin.password",
+  "secrets/mpath_reservation_key_{{ inventory_hostname }}.txt",
+  chars="01234567890abcdef", length=16) }}'
+mpath_defaults_override:
+  reservation_key: 0x{{ mpath_reservation_key }}
 
 target_node_acl:
   chap_userid: initiator
