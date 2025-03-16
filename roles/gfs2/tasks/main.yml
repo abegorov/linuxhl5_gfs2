@@ -2,6 +2,7 @@
 - name: Install GFS2
   ansible.builtin.apt:
     name:
+      - dlm-controld
       - gfs2-utils
       - lvm2-lockd
     update_cache: true
