@@ -1,0 +1,9 @@
+---
+gen_keys_base64: true
+gen_keys_size: 256
+# gen_keys_keys:
+#   - path: secrets/corosync.key
+#     base64: true
+#     size: 256
+gen_keys_keys: []
+...

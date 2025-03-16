@@ -1,0 +1,23 @@
+---
+- name: Create directories for keys
+  become: false
+  delegate_to: localhost
+  ansible.builtin.file:
+    path: '{{ item }}'
+    mode: '0755'
+    state: directory
+  loop: '{{ gen_keys_keys | map(attribute="path") |
+    map("ansible.builtin.dirname") | ansible.builtin.unique }}'
+
+- name: Generate keys
+  become: false
+  delegate_to: localhost
+  ansible.builtin.command: >
+    openssl rand
+    -out {{ item.path | ansible.builtin.quote }}
+    {{ '-base64' if item.base64 | default(gen_keys_base64) else '' }}
+    {{ item.size | default(gen_keys_size) }}
+  args:
+    creates: '{{ item.path }}'
+  loop: '{{ gen_keys_keys }}'
+...
