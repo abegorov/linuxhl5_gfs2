@@ -14,20 +14,17 @@
     cache_valid_time: 3600
     state: present
 
-- name: Update hacluster password
-  ansible.builtin.user:
-    name: hacluster
-    password: '{{ pacemaker_passwd_hash }}'
+- name: Import pcsd tasks
+  ansible.builtin.import_tasks: pcsd.yml
 
 - name: Enable and start services
   ansible.builtin.systemd_service:
-    name: pcsd.service
+    name: '{{ item }}'
     enabled: true
     state: started
   loop:
     - corosync.service
     - pacemaker.service
-    - pcsd.service
   ignore_errors: '{{ ansible_check_mode }}'
 
 - name: Force all notified handlers to run at this point

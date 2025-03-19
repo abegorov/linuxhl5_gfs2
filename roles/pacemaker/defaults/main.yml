@@ -1,3 +1,23 @@
 ---
 pacemaker_passwd_hash: x
+pacemaker_enable_pcsd: false
+pacemaker_pcsd_config: |
+  {%
+    set config = pacemaker_pcsd_default |
+      ansible.builtin.combine(pacemaker_pcsd_override)
+  %}
+  {% for key, value in config.items() %}
+  {% if value is boolean %}
+  {{- key }}={{ 'true' if value else 'false' }}
+  {% else %}
+  {{- key }}={{ value | ansible.builtin.quote }}
+  {% endif %}
+  {% endfor %}
+pacemaker_pcsd_default:
+  PCSD_DEBUG: false
+  PCSD_DISABLE_GUI: true
+  PCSD_SESSION_LIFETIME: 3600
+  PCSD_RESTART_AFTER_REQUESTS: 200
+  RACK_ENV: production
+pacemaker_pcsd_override: {}
 ...

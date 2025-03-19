@@ -1,0 +1,25 @@
+---
+- name: Update hacluster password
+  ansible.builtin.user:
+    name: hacluster
+    password: '{{ pacemaker_passwd_hash }}'
+
+- name: Update pcsd service config
+  ansible.builtin.copy:
+    content: '{{ pacemaker_pcsd_config }}'
+    dest: /etc/default/pcsd
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart pcsd service
+
+- name: Update pcsd service status
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    enabled: '{{ pacemaker_enable_pcsd }}'
+    state: '{{ "started" if pacemaker_enable_pcsd else "stopped" }}'
+  loop:
+    - pcsd.service
+    - pcsd-ruby.service
+  ignore_errors: '{{ ansible_check_mode }}'
+...
