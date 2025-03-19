@@ -9,13 +9,11 @@ corosync_cluster_uuid: '{{ lookup("ansible.builtin.password",
 corosync_node:
   key: '{{ inventory_hostname }}'
   value:
-    - '{{ ip_address}}'
-    - '{{ ip_address_iscsi1 }}'
-    - '{{ ip_address_iscsi2 }}'
+    - '{{ ip_address }}'
 corosync_nodelist: '{{ groups["gfs"] |
   map("ansible.builtin.extract", hostvars, "corosync_node") |
   ansible.builtin.items2dict }}'
-corosync_interfaces: [{}, {}, {}]
+corosync_interfaces: [{}]
 
 gen_keys_keys:
   - path: '{{ corosync_authkey_path }}'
