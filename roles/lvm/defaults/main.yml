@@ -1,0 +1,74 @@
+---
+lvm_vgs: []
+lvm_lvs: []
+
+lvm_lockd: false
+
+lvm_config: {}
+lvm_devices:
+  issue_discards: 1
+lvm_allocation: {}
+lvm_cache_settings:
+lvm_log: {}
+lvm_backup: {}
+lvm_shell: {}
+lvm_global: {}
+lvm_activation: {}
+lvm_dmeventd: {}
+lvm_tags:
+lvm_local: {}
+
+lvm_lvm_conf: |
+  {% macro kv(key, value) %}
+  {% if value is number %}
+    {{ key }} = {{ value }}
+  {% else %}
+    {{ key }} = "{{ value }}"
+  {% endif %}
+  {% endmacro %}
+  config {
+  {% for k, v in lvm_config.items() %}{{ kv(k, v) }}{% endfor %}
+  }
+  devices {
+  {% for k, v in lvm_devices.items() %}{{ kv(k, v) }}{% endfor %}
+  }
+  allocation {
+  {% for k, v in lvm_allocation.items() %}{{ kv(k, v) }}{% endfor %}
+  {% if lvm_cache_settings %}
+    cache_settings {
+      {{ lvm_cache_settings | indent(4) }}
+    }
+  {% endif %}
+  }
+  log {
+  {% for k, v in lvm_log.items() %}{{ kv(k, v) }}{% endfor %}
+  }
+  backup {
+  {% for k, v in lvm_backup.items() %}{{ kv(k, v) }}{% endfor %}
+  }
+  shell {
+  {% for k, v in lvm_shell.items() %}{{ kv(k, v) }}{% endfor %}
+  }
+  global {
+  {% for k, v in lvm_global.items() %}{{ kv(k, v) }}{% endfor %}
+  }
+  activation {
+  {% for k, v in lvm_activation.items() %}{{ kv(k, v) }}{% endfor %}
+  }
+  dmeventd {
+  {% for k, v in lvm_dmeventd.items() %}{{ kv(k, v) }}{% endfor %}
+  }
+  tags {
+  {% if lvm_tags %}  {{ lvm_tags | indent(2) }}{% endif %}
+  }
+lvm_lvmlocal_conf: |
+  local {
+  {% for key, value in lvm_local.items() %}
+  {% if v is number %}
+    {{ key }} = {{ value }}
+  {% else %}
+    {{ key }} = "{{ value }}"
+  {% endif %}
+  {% endfor %}
+  }
+...

@@ -1,0 +1,14 @@
+---
+lvm_vgs:
+  - vg: vg_gfs
+    vg_options: --shared
+    pvs: /dev/mapper/mpatha
+    state: present
+
+lvm_lvs:
+  - vg: vg_gfs
+    lv: lv_gfs
+    size: 100%VG
+    active: false
+    shared: true
+...

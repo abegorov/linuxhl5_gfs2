@@ -1,0 +1,84 @@
+---
+- name: Install LVM
+  ansible.builtin.apt:
+    name: lvm2
+    update_cache: true
+    cache_valid_time: 3600
+    state: present
+
+- name: Install LVM locking daemon
+  ansible.builtin.apt:
+    name:
+      - dlm-controld
+      - lvm2-lockd
+    update_cache: true
+    cache_valid_time: 3600
+    state: present
+  when: lvm_lockd
+
+- name: Update lvm.conf
+  ansible.builtin.copy:
+    content: '{{ lvm_lvm_conf }}'
+    dest: /etc/lvm/lvm.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Update lvmlocal.conf
+  ansible.builtin.copy:
+    content: '{{ lvm_lvmlocal_conf }}'
+    dest: /etc/lvm/lvmlocal.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable and start services
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+  loop:
+    - dlm.service
+    - lvmlockd.service
+    - lvmlocks.service
+  when: lvm_lockd
+  ignore_errors: '{{ ansible_check_mode }}'
+
+- name: Update volume groups
+  community.general.lvg:
+    vg: '{{ item.vg }}'
+    vg_options: '{{ item.vg_options | default(omit) }}'
+    pvs: '{{ item.pvs | default(omit) }}'
+    pv_options: '{{ item.pv_options | default(omit) }}'
+    pvresize: '{{ item.pvresize | default(omit) }}'
+    remove_extra_pvs: '{{ item.remove_extra_pvs | default(omit) }}'
+    pesize: '{{ item.pesize | default(omit) }}'
+    state: '{{ item.state | default(omit) }}'
+  loop: '{{ lvm_vgs }}'
+  loop_control:
+    label: '{{ item.vg }}'
+
+- name: Update logical volumes
+  community.general.lvol:
+    vg: '{{ item.vg }}'
+    lv: '{{ item.lv }}'
+    opts: '{{ item.opts | default(omit) }}'
+    pvs: '{{ item.pvs | default(omit) }}'
+    size: '{{ item.size | default(omit) }}'
+    shrink: '{{ item.shrink | default(omit) }}'
+    resizefs: '{{ item.resizefs | default(omit) }}'
+    snapshot: '{{ item.snapshot | default(omit) }}'
+    active: '{{ item.active | default(omit) }}'
+    state: '{{ item.state | default(omit) }}'
+  loop: '{{ lvm_lvs }}'
+  loop_control:
+    label: '{{ item.vg }}-{{ item.lv }}'
+
+- name: Ensure shared locking
+  ansible.builtin.command: lvchange -asy '{{ item.vg }}/{{ item.lv }}'
+  changed_when: false
+  loop: '{{ lvm_lvs }}'
+  loop_control:
+    label: '{{ item.vg }}-{{ item.lv }}'
+  when: (item.active | default(True)) and (item.shared | default(False))
+...
