@@ -6,16 +6,6 @@
     cache_valid_time: 3600
     state: present
 
-- name: Install LVM locking daemon
-  ansible.builtin.apt:
-    name:
-      - dlm-controld
-      - lvm2-lockd
-    update_cache: true
-    cache_valid_time: 3600
-    state: present
-  when: lvm_lockd
-
 - name: Update lvm.conf
   ansible.builtin.copy:
     content: '{{ lvm_lvm_conf }}'
@@ -32,53 +22,49 @@
     group: root
     mode: '0644'
 
-- name: Enable and start services
-  ansible.builtin.systemd_service:
-    name: '{{ item }}'
-    enabled: true
-    state: started
-  loop:
-    - dlm.service
-    - lvmlockd.service
-    - lvmlocks.service
+- name: Import LVM lockd tasks
+  ansible.builtin.import_tasks: lockd.yml
   when: lvm_lockd
-  ignore_errors: '{{ ansible_check_mode }}'
 
-- name: Update volume groups
-  community.general.lvg:
-    vg: '{{ item.vg }}'
-    vg_options: '{{ item.vg_options | default(omit) }}'
-    pvs: '{{ item.pvs | default(omit) }}'
-    pv_options: '{{ item.pv_options | default(omit) }}'
-    pvresize: '{{ item.pvresize | default(omit) }}'
-    remove_extra_pvs: '{{ item.remove_extra_pvs | default(omit) }}'
-    pesize: '{{ item.pesize | default(omit) }}'
-    state: '{{ item.state | default(omit) }}'
+- name: Create volume groups
+  ansible.builtin.command: >
+    vgcreate {{ lvm_create_opts }}
+  changed_when: true
+  when: item.vg not in lvm_facts_vgs | map(attribute='vg_name')
   loop: '{{ lvm_vgs }}'
   loop_control:
     label: '{{ item.vg }}'
 
-- name: Update logical volumes
-  community.general.lvol:
-    vg: '{{ item.vg }}'
-    lv: '{{ item.lv }}'
-    opts: '{{ item.opts | default(omit) }}'
-    pvs: '{{ item.pvs | default(omit) }}'
-    size: '{{ item.size | default(omit) }}'
-    shrink: '{{ item.shrink | default(omit) }}'
-    resizefs: '{{ item.resizefs | default(omit) }}'
-    snapshot: '{{ item.snapshot | default(omit) }}'
-    active: '{{ item.active | default(omit) }}'
-    state: '{{ item.state | default(omit) }}'
+- name: Create logical volumes
+  ansible.builtin.command: >
+    lvcreate {{ lvm_create_opts }}
+    --activate n
+    --name {{ item.lv | ansible.builtin.quote }}
+  changed_when: true
+  when: item.lv not in lvm_facts_lvs | selectattr('vg_name', 'eq', item.vg) |
+    map(attribute='lv_name')
   loop: '{{ lvm_lvs }}'
   loop_control:
-    label: '{{ item.vg }}-{{ item.lv }}'
+    label: '{{ item.vg }}/{{ item.lv }}'
 
-- name: Ensure shared locking
-  ansible.builtin.command: lvchange -asy '{{ item.vg }}/{{ item.lv }}'
-  changed_when: false
-  loop: '{{ lvm_lvs }}'
+- name: Activate logical volumes
+  ansible.builtin.shell: |
+    set -eu
+    set -o pipefail
+    {% if item.shared | default(False) %}
+    vgchange --lockstart {{ item.vg | ansible.builtin.quote }}
+    lvchange -asy {{ item.vg | ansible.builtin.quote }}/{{
+      item.lv | ansible.builtin.quote }}
+    {% else %}
+    lvchange -asy {{ item.vg | ansible.builtin.quote }}/{{
+      item.lv | ansible.builtin.quote }}
+    {% endif %}
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when: item.lv not in lvm_facts_lvs | selectattr('vg_name', 'eq', item.vg) |
+    selectattr('lv_active', 'eq', 'active') | map(attribute='lv_name')
+  loop: '{{ lvm_activate }}'
   loop_control:
-    label: '{{ item.vg }}-{{ item.lv }}'
-  when: (item.active | default(True)) and (item.shared | default(False))
+    label: '{{ item.vg }}/{{ item.lv }}'
 ...

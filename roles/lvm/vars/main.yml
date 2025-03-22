@@ -1,0 +1,12 @@
+---
+lvm_create_opts: >
+  {{ item.vg }}
+  {% for pv in item.pvs | default([]) %} {{ pv }}{% endfor %}
+  {% for key, value in (item.opts | default({})).items() %}
+  {% if value is boolean and value %}
+  --{{ key }}
+  {% else %}
+  --{{ key }} {{ value | ansible.builtin.quote }}
+  {% endif %}
+  {% endfor %}
+...

@@ -1,0 +1,35 @@
+---
+- name: Install LVM locking daemon
+  ansible.builtin.apt:
+    name: lvm2-lockd
+    update_cache: true
+    cache_valid_time: 3600
+    state: present
+
+- name: Create lvmlocks.service.d directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/lvmlocks.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Update lvmlocks service overrides
+  ansible.builtin.template:
+    src: lvmlocks.override.conf
+    dest: /etc/systemd/system/lvmlocks.service.d/override.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable and start services
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    daemon_reload: true
+    enabled: true
+    state: started
+  loop:
+    - lvmlockd.service
+    - lvmlocks.service
+  ignore_errors: '{{ ansible_check_mode }}'
+...
