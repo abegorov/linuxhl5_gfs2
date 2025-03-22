@@ -1,0 +1,21 @@
+---
+- name: Gatehring lvm volume groups facts
+  ansible.builtin.command: vgs --options all --reportformat json
+  changed_when: false
+  register: lvm_facts_vgs
+
+- name: Parse lvm volume groups facts
+  ansible.builtin.set_fact:
+    lvm_facts_vgs: '{{ (lvm_facts_vgs.stdout |
+      ansible.builtin.from_json).report[0].vg }}'
+
+- name: Gatehring lvm logical volumes facts
+  ansible.builtin.command: lvs --options all --reportformat json
+  changed_when: false
+  register: lvm_facts_lvs
+
+- name: Parse lvm volume groups facts
+  ansible.builtin.set_fact:
+    lvm_facts_lvs: '{{ (lvm_facts_lvs.stdout |
+      ansible.builtin.from_json).report[0].lv }}'
+...
