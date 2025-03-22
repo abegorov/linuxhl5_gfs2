@@ -1,0 +1,26 @@
+---
+- name: Getting device real paths
+  ansible.builtin.stat:
+    path: '{{ item.dev }}'
+    follow: false
+    get_attributes: false
+    get_checksum: false
+    get_mime: false
+  loop: '{{ filesystem_devs }}'
+  loop_control:
+    label: '{{ item.dev }}'
+  register: filesystem_real
+
+- name: Format disks
+  ansible.builtin.command: >
+    {{ ('mkfs.' + item.item.fstype) | ansible.builtin.quote }}
+    {{ item.item.opts }}
+    {{ item.item.dev | ansible.builtin.quote }}
+  changed_when: true
+  when: item.stat.lnk_source | ansible.builtin.basename not in
+    disk_facts_sigs | map(attribute="device") | ansible.builtin.unique
+  loop: '{{ filesystem_real.results }}'
+  loop_control:
+    label: '{{ item.item.dev }}'
+  register: filesystem_format
+...

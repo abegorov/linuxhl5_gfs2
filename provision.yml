@@ -28,5 +28,6 @@
     - dlm
     - lvm
     - gfs2
+    - filesystem
     - pacemaker
 ...

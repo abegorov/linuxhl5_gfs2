@@ -10,4 +10,9 @@ lvm_lvs:
     lv: '{{ lv }}'
     opts:
       extents: 100%VG
+
+filesystem_devs:
+  - dev: /dev/{{ vg }}/{{ lv }}
+    fstype: gfs2
+    opts: -O -j3 -p lock_dlm -t gfs2:gfs2
 ...
