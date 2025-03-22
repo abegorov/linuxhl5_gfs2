@@ -1,16 +1,8 @@
 ---
 - name: Install GFS2
   ansible.builtin.apt:
-    name:
-      - dlm-controld
-      - gfs2-utils
+    name: gfs2-utils
     update_cache: true
     cache_valid_time: 3600
     state: present
-
-- name: Enable and start services
-  ansible.builtin.systemd_service:
-    name: dlm.service
-    enabled: true
-    state: started
 ...
