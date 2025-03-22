@@ -1,6 +1,13 @@
 ---
+vg: vg_gfs
+lv: lv_gfs
+
 lvm_lockd: true
 lvm_global:
   locking_type: 1
   use_lvmlockd: 1
+lvm_activate:
+  - vg: '{{ vg }}'
+    lv: '{{ lv }}'
+    shared: true
 ...

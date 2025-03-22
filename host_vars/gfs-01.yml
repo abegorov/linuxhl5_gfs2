@@ -1,14 +1,13 @@
 ---
 lvm_vgs:
-  - vg: vg_gfs
-    vg_options: --shared
-    pvs: /dev/mapper/mpatha
-    state: present
+  - vg: '{{ vg }}'
+    pvs: [/dev/mapper/mpatha]
+    opts:
+      shared: true
 
 lvm_lvs:
-  - vg: vg_gfs
-    lv: lv_gfs
-    size: 100%VG
-    active: false
-    shared: true
+  - vg: '{{ vg }}'
+    lv: '{{ lv }}'
+    opts:
+      extents: 100%VG
 ...

@@ -25,6 +25,7 @@
     - iscsi
     - mpath
     - corosync
+    - dlm
     - lvm
     - gfs2
     - pacemaker
