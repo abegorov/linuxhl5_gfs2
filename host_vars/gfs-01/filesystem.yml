@@ -1,7 +1,7 @@
 ---
 lvm_vgs:
   - vg: '{{ vg }}'
-    pvs: [/dev/mapper/mpatha]
+    pvs: ['{{ pv }}']
     opts:
       shared: true
 

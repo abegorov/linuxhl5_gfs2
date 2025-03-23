@@ -1,0 +1,104 @@
+---
+pcmk_host_map: '{{ groups["gfs"] |
+  map("ansible.builtin.extract", hostvars, "mpath_reservation_kvpair") |
+  join(";") }}'
+pacemaker_config:
+  crm_config: |
+    <crm_config>
+      <cluster_property_set id="cib-bootstrap-options">
+        <nvpair id="cib-bootstrap-options-have-watchdog" name="have-watchdog" value="false"/>
+        <nvpair id="cib-bootstrap-options-dc-version" name="dc-version" value="2.1.6-6fdc9deea29"/>
+        <nvpair id="cib-bootstrap-options-cluster-infrastructure" name="cluster-infrastructure" value="corosync"/>
+        <nvpair id="cib-bootstrap-options-cluster-name" name="cluster-name" value="{{ corosync_cluster_name }}"/>
+        <nvpair id="cib-bootstrap-options-stonith-enabled" name="stonith-enabled" value="true"/>
+        <nvpair id="cib-bootstrap-options-no-quorum-policy" name="no-quorum-policy" value="freeze"/>
+      </cluster_property_set>
+    </crm_config>
+  resources: |
+    <resources>
+      <primitive id="mpath-fencing" class="stonith" type="fence_mpath">
+        <instance_attributes id="mpath-fencing-instance_attributes">
+          <nvpair id="mpath-fencing-instance_attributes-devices" name="devices" value="{{ pv }}"/>
+          <nvpair id="mpath-fencing-instance_attributes-pcmk_host_argument" name="pcmk_host_argument" value="key"/>
+          <nvpair id="mpath-fencing-instance_attributes-pcmk_host_map" name="pcmk_host_map" value="{{ pcmk_host_map }}"/>
+          <nvpair id="mpath-fencing-instance_attributes-pcmk_monitor_action" name="pcmk_monitor_action" value="metadata"/>
+          <nvpair id="mpath-fencing-instance_attributes-pcmk_reboot_action" name="pcmk_reboot_action" value="off"/>
+        </instance_attributes>
+        <meta_attributes id="mpath-fencing-meta_attributes">
+          <nvpair id="mpath-fencing-meta_attributes-provides" name="provides" value="unfencing"/>
+        </meta_attributes>
+        <operations>
+          <op name="monitor" interval="1s" id="mpath-fencing-monitor-interval-1s"/>
+        </operations>
+      </primitive>
+      <clone id="dlm-clone">
+        <primitive id="dlm" class="systemd" type="dlm">
+          <operations>
+            <op name="monitor" interval="1s" on-fail="restart" id="dlm-monitor-interval-1s"/>
+            <op name="start" interval="0s" timeout="100" id="dlm-start-interval-0s"/>
+            <op name="stop" interval="0s" timeout="100" id="dlm-stop-interval-0s"/>
+          </operations>
+        </primitive>
+        <meta_attributes id="dlm-clone-meta_attributes">
+          <nvpair id="dlm-clone-meta_attributes-interleave" name="interleave" value="true"/>
+          <nvpair id="dlm-clone-meta_attributes-ordered" name="ordered" value="true"/>
+        </meta_attributes>
+      </clone>
+      <clone id="lvmlockd-clone">
+        <primitive id="lvmlockd" class="systemd" type="lvmlockd">
+          <operations>
+            <op name="monitor" interval="1s" on-fail="restart" id="lvmlockd-monitor-interval-1s"/>
+            <op name="start" interval="0s" timeout="100" id="lvmlockd-start-interval-0s"/>
+            <op name="stop" interval="0s" timeout="100" id="lvmlockd-stop-interval-0s"/>
+          </operations>
+        </primitive>
+        <meta_attributes id="lvmlockd-clone-meta_attributes">
+          <nvpair id="lvmlockd-clone-meta_attributes-interleave" name="interleave" value="true"/>
+          <nvpair id="lvmlockd-clone-meta_attributes-ordered" name="ordered" value="true"/>
+        </meta_attributes>
+      </clone>
+      <clone id="clusterlv-clone">
+        <primitive id="clusterlv" class="ocf" type="LVM-activate" provider="heartbeat">
+          <instance_attributes id="clusterlv-instance_attributes">
+            <nvpair id="clusterlv-instance_attributes-activation_mode" name="activation_mode" value="shared"/>
+            <nvpair id="clusterlv-instance_attributes-lvname" name="lvname" value="{{ lv }}"/>
+            <nvpair id="clusterlv-instance_attributes-vg_access_mode" name="vg_access_mode" value="lvmlockd"/>
+            <nvpair id="clusterlv-instance_attributes-vgname" name="vgname" value="{{ vg }}"/>
+          </instance_attributes>
+          <operations>
+            <op name="monitor" interval="1s" on-fail="restart" id="clusterlv-monitor-interval-1s"/>
+            <op name="start" interval="0s" timeout="90s" id="clusterlv-start-interval-0s"/>
+            <op name="stop" interval="0s" timeout="90s" id="clusterlv-stop-interval-0s"/>
+          </operations>
+        </primitive>
+        <meta_attributes id="clusterlv-clone-meta_attributes">
+          <nvpair id="clusterlv-clone-meta_attributes-interleave" name="interleave" value="true"/>
+        </meta_attributes>
+      </clone>
+      <clone id="clusterfs-clone">
+        <primitive id="clusterfs" class="ocf" type="Filesystem" provider="heartbeat">
+          <instance_attributes id="clusterfs-instance_attributes">
+            <nvpair id="clusterfs-instance_attributes-device" name="device" value="/dev/{{ vg }}/{{ lv }}"/>
+            <nvpair id="clusterfs-instance_attributes-directory" name="directory" value="{{ gfs_mountpoint }}"/>
+            <nvpair id="clusterfs-instance_attributes-fstype" name="fstype" value="gfs2"/>
+            <nvpair id="clusterfs-instance_attributes-options" name="options" value="noatime"/>
+          </instance_attributes>
+          <operations>
+            <op name="monitor" interval="1" on-fail="fence" id="clusterfs-monitor-interval-1"/>
+            <op name="start" interval="0s" timeout="60s" id="clusterfs-start-interval-0s"/>
+            <op name="stop" interval="0s" timeout="60s" id="clusterfs-stop-interval-0s"/>
+          </operations>
+        </primitive>
+        <meta_attributes id="clusterfs-clone-meta_attributes">
+          <nvpair id="clusterfs-clone-meta_attributes-interleave" name="interleave" value="true"/>
+        </meta_attributes>
+      </clone>
+    </resources>
+  constraints: |
+    <constraints>
+      <rsc_order first="dlm-clone" then="lvmlockd-clone" first-action="start" then-action="start" id="order-dlm-clone-lvmlockd-clone-mandatory"/>
+      <rsc_order first="lvmlockd-clone" then="clusterlv-clone" first-action="start" then-action="start" id="order-lvmlockd-clone-clusterlv-clone-mandatory"/>
+      <rsc_order first="clusterlv-clone" then="clusterfs-clone" first-action="start" then-action="start" id="order-clusterlv-clone-clusterfs-clone-mandatory"/>
+      <rsc_colocation rsc="clusterfs-clone" with-rsc="clusterlv-clone" score="INFINITY" id="colocation-clusterfs-clone-clusterlv-clone-INFINITY"/>
+    </constraints>
+...

@@ -1,6 +1,7 @@
 ---
-vg: vg_gfs
-lv: lv_gfs
+pv: /dev/mapper/mpatha
+vg: cluster_vg
+lv: cluster_lv
 
 lvm_lockd: true
 lvm_global:
@@ -10,4 +11,8 @@ lvm_activate:
   - vg: '{{ vg }}'
     lv: '{{ lv }}'
     shared: true
+
+gfs_mountpoint: /mnt/gfs2
+directory_dirs:
+  - path: '{{ gfs_mountpoint }}'
 ...

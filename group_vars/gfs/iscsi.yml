@@ -20,6 +20,8 @@ iscsi_targets:
 mpath_reservation_key: '{{ lookup("ansible.builtin.password",
   "secrets/mpath_reservation_key_{{ inventory_hostname }}.txt",
   chars="01234567890abcdef", length=16) }}'
+mpath_reservation_kvpair: '{{
+  inventory_hostname }}:{{ mpath_reservation_key }}'
 mpath_defaults_override:
   reservation_key: 0x{{ mpath_reservation_key }}
 

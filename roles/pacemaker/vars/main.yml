@@ -1,0 +1,3 @@
+---
+pacemaker_scopes: [crm_config, resources, constraints]
+...

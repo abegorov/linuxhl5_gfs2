@@ -20,4 +20,6 @@ pacemaker_pcsd_default:
   PCSD_RESTART_AFTER_REQUESTS: 200
   RACK_ENV: production
 pacemaker_pcsd_override: {}
+
+pacemaker_config: {}
 ...

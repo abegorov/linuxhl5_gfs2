@@ -1,0 +1,30 @@
+---
+- name: Query pacemaker configuration
+  ansible.builtin.shell: >
+    cibadmin --scope {{ item }} --query > /etc/pacemaker/{{ item }}.xml
+  changed_when: false
+  loop: '{{ pacemaker_scopes }}'
+
+- name: Change pacemaker configuration
+  ansible.builtin.copy:
+    content: '{{ pacemaker_config[item] }}'
+    dest: /etc/pacemaker/{{ item }}.xml
+    owner: root
+    group: root
+    mode: '0644'
+  when: pacemaker_config[item] is defined
+  loop: '{{ pacemaker_scopes }}'
+  register: pacemaker_config_changes
+
+- name: Update pacemaker configuration
+  ansible.builtin.command: >
+    cibadmin
+    --scope {{ item.item }}
+    --replace
+    --xml-file /etc/pacemaker/{{ item.item }}.xml
+  changed_when: true
+  when: item.changed  # noqa: no-handler
+  loop: '{{ pacemaker_config_changes.results }}'
+  loop_control:
+    label: '{{ item.item }}'
+...
