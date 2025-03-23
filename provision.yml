@@ -6,6 +6,7 @@
   roles:
     - wait_connection
     - apt_sources
+    - chrony
     - hosts
     - gen_keys
 
@@ -29,5 +30,6 @@
     - lvm
     - gfs2
     - filesystem
+    - directory
     - pacemaker
 ...
