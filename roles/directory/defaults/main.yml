@@ -1,0 +1,7 @@
+---
+directory_defaults:
+  owner: root
+  group: root
+  mode: '0755'
+directory_dirs: []
+...
