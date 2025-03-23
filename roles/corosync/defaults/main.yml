@@ -4,6 +4,7 @@ corosync_cluster_name: '{{ undef(hint="corosync_cluster_name") }}'
 corosync_cluster_uuid:
 corosync_nodelist: {}
 corosync_interfaces: []
+corosync_rrp_mode: none
 corosync_config: |
   totem {
     version: 2
@@ -11,6 +12,7 @@ corosync_config: |
     transport: knet
     crypto_cipher: aes256
     crypto_hash: sha256
+    rrp_mode: {{ corosync_rrp_mode }}
   {% if corosync_cluster_uuid %}
     cluster_uuid: {{ corosync_cluster_uuid }}
   {% endif %}

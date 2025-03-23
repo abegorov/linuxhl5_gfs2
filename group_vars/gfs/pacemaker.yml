@@ -10,10 +10,13 @@ corosync_node:
   key: '{{ inventory_hostname }}'
   value:
     - '{{ ip_address }}'
+    - '{{ ip_address_iscsi1 }}'
+    - '{{ ip_address_iscsi2 }}'
 corosync_nodelist: '{{ groups["gfs"] |
   map("ansible.builtin.extract", hostvars, "corosync_node") |
   ansible.builtin.items2dict }}'
-corosync_interfaces: [{}]
+corosync_interfaces: [{}, {}, {}]
+corosync_rrp_mode: passive
 
 gen_keys_keys:
   - path: '{{ corosync_authkey_path }}'
