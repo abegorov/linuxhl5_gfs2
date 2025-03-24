@@ -1,0 +1,70 @@
+---
+- name: Install mdadm
+  ansible.builtin.apt:
+    name: mdadm
+    update_cache: true
+    cache_valid_time: 3600
+    state: present
+
+- name: Update mdadm.conf
+  ansible.builtin.copy:
+    content: '{{ mdadm_conf }}'
+    dest: /etc/mdadm/mdadm.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Getting raid device info for create
+  ansible.builtin.stat:
+    path: '{{ item }}'
+    get_attributes: false
+    get_checksum: false
+    get_mime: false
+  loop: '{{ mdadm_create | map(attribute="raid_device") }}'
+  register: mdadm_create_devs
+
+- name: Getting component device signatures
+  ansible.builtin.command:
+    cmd: wipefs --no-act --noheadings {{ item | join(' ') }}
+  changed_when: false
+  loop: '{{ mdadm_create | map(attribute="component_devices") }}'
+  register: mdadm_create_sigs
+
+- name: Create raid device
+  ansible.builtin.command: >
+    mdadm --create
+    {{ item.raid_device }}
+    {% for key, value in (item.opts | default({})).items() %}
+    {% if value is boolean and value %}
+    --{{ key }}
+    {% else %}
+    --{{ key }}={{ value | ansible.builtin.quote }}
+    {% endif %}
+    {% endfor %}
+    {{ item.component_devices | join(' ') }}
+  changed_when: true
+  when:
+    - not mdadm_create_devs.results[i].stat.exists
+    - not mdadm_create_sigs.results[i].stdout
+  loop: '{{ mdadm_create }}'
+  loop_control:
+    index_var: i
+    label: '{{ item.raid_device }}'
+
+- name: Getting raid device info for assemble
+  ansible.builtin.stat:
+    path: '{{ item }}'
+    get_attributes: false
+    get_checksum: false
+    get_mime: false
+  loop: '{{ mdadm_assemble }}'
+  register: mdadm_assemble_devs
+
+- name: Assemble raid device
+  ansible.builtin.command: mdadm --assemble {{ item }}
+  changed_when: true
+  when: not mdadm_assemble_devs.results[i].stat.exists
+  loop: '{{ mdadm_assemble }}'
+  loop_control:
+    index_var: i
+...

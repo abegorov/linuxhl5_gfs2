@@ -1,0 +1,7 @@
+---
+mdadm_conf: |
+  HOMEHOST <system>
+  MAILADDR root
+
+mdadm_create: []
+...
