@@ -27,6 +27,7 @@
     - mpath
     - corosync
     - dlm
+    - mdadm
     - lvm
     - gfs2
     - filesystem

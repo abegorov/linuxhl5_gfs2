@@ -1,7 +1,17 @@
 ---
+mdadm_create:
+  - raid_device: '{{ mdadm_raid_device }}'
+    component_devices: '{{ mdadm_component_devices }}'
+    opts:
+      bitmap: clustered
+      raid-devices: 2
+      level: mirror
+      metadata: '1.2'
+      uuid: '{{ mdadm_raid_uuid }}'
+
 lvm_vgs:
   - vg: '{{ vg }}'
-    pvs: ['{{ pv }}']
+    pvs: '{{ pvs }}'
     opts:
       shared: true
 

@@ -14,8 +14,11 @@ iscsi_config_override:
 iscsi_portals:
   - '{{ hostvars["iscsi-01"].ip_address_iscsi1 }}'
   - '{{ hostvars["iscsi-01"].ip_address_iscsi2 }}'
+  - '{{ hostvars["iscsi-02"].ip_address_iscsi1 }}'
+  - '{{ hostvars["iscsi-02"].ip_address_iscsi2 }}'
 iscsi_targets:
   - target: '{{ hostvars["iscsi-01"].target_wwn }}'
+  - target: '{{ hostvars["iscsi-02"].target_wwn }}'
 
 mpath_reservation_key: '{{ lookup("ansible.builtin.password",
   "secrets/mpath_reservation_key_{{ inventory_hostname }}.txt",

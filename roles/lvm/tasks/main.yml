@@ -26,13 +26,23 @@
   ansible.builtin.import_tasks: lockd.yml
   when: lvm_lockd
 
+- name: Getting physical volumes signatures
+  ansible.builtin.command:
+    cmd: wipefs --no-act --noheadings {{ item | join(' ') }}
+  changed_when: false
+  loop: '{{ lvm_vgs | map(attribute="pvs") }}'
+  register: lvm_pvs_sigs
+
 - name: Create volume groups
   ansible.builtin.command: >
     vgcreate {{ lvm_create_opts }}
   changed_when: true
-  when: item.vg not in lvm_facts_vgs | map(attribute='vg_name')
+  when:
+    - lvm_pvs_sigs.results[i].stdout
+    - item.vg not in lvm_facts_vgs | map(attribute='vg_name')
   loop: '{{ lvm_vgs }}'
   loop_control:
+    index_var: i
     label: '{{ item.vg }}'
 
 - name: Create logical volumes

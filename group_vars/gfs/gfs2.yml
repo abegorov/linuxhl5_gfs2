@@ -1,7 +1,21 @@
 ---
-pv: /dev/mapper/mpatha
-vg: cluster_vg
-lv: cluster_lv
+mdadm_raid_device: /dev/md/cluster-md
+mdadm_raid_uuid: '{{ lookup("ansible.builtin.password",
+  "secrets/mdadm_raid_uuid.txt") | ansible.builtin.to_uuid |
+  replace("-", "") | slice(4) | map("join") | join(":") }}'
+mdadm_component_devices:
+  - /dev/mapper/mpatha
+  - /dev/mapper/mpathb
+mdadm_conf: |
+  HOMEHOST <system>
+  MAILADDR root
+  DEVICE {{ mdadm_component_devices | join(' ') }}
+  ARRAY {{ mdadm_raid_device }} metadata=1.2 UUID={{ mdadm_raid_uuid }}
+mdadm_assemble: ['{{ mdadm_raid_device }}']
+
+pvs: ['{{ mdadm_raid_device }}']
+vg: cluster-vg
+lv: cluster-lv
 
 lvm_lockd: true
 lvm_global:
@@ -12,7 +26,7 @@ lvm_activate:
     lv: '{{ lv }}'
     shared: true
 
-gfs_mountpoint: /mnt/gfs2
+gfs_mountpoint: /mnt/cluster-fs
 directory_dirs:
   - path: '{{ gfs_mountpoint }}'
 ...
