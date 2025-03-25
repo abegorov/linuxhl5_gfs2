@@ -12,6 +12,7 @@ pacemaker_config:
         <nvpair id="cib-bootstrap-options-cluster-name" name="cluster-name" value="{{ corosync_cluster_name }}"/>
         <nvpair id="cib-bootstrap-options-stonith-enabled" name="stonith-enabled" value="true"/>
         <nvpair id="cib-bootstrap-options-no-quorum-policy" name="no-quorum-policy" value="freeze"/>
+        <nvpair id="cib-bootstrap-options-start-failure-is-fat" name="start-failure-is-fatal" value="false"/>
       </cluster_property_set>
     </crm_config>
   resources: |
@@ -65,8 +66,8 @@ pacemaker_config:
           </instance_attributes>
           <operations>
             <op name="monitor" interval="1s" on-fail="restart" id="cluster-md-monitor-interval-1s"/>
-            <op name="start" interval="0s" timeout="20s" id="cluster-md-start-interval-0s"/>
-            <op name="stop" interval="0s" timeout="20s" id="cluster-md-stop-interval-0s"/>
+            <op name="start" interval="0s" timeout="90s" id="cluster-md-start-interval-0s"/>
+            <op name="stop" interval="0s" timeout="90s" id="cluster-md-stop-interval-0s"/>
           </operations>
         </primitive>
         <meta_attributes id="cluster-md-clone-meta_attributes">
