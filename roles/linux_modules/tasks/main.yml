@@ -1,0 +1,16 @@
+---
+- name: Gather kernel facts
+  ansible.builtin.setup:
+    gather_subset: ['!all', '!min', kernel]
+
+- name: Install kernel modules
+  ansible.builtin.apt:
+    name:
+      - linux-image-generic
+      - linux-modules-extra-{{ ansible_kernel }}
+    update_cache: true
+    cache_valid_time: 3600
+    state: present
+  retries: 10
+  delay: 10
+...
