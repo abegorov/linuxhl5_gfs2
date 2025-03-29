@@ -10,6 +10,7 @@
     owner: root
     group: root
     mode: '0644'
+  notify: Update apt cache
 
 - name: Create sources.list.d directory
   ansible.builtin.file:
@@ -23,6 +24,7 @@
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/{{ item }}
     state: absent
+  notify: Update apt cache
   loop: '{{ apt_sources_remove }}'
 
 - name: Update sources.list.d files
@@ -32,12 +34,11 @@
     owner: root
     group: root
     mode: '0644'
+  notify: Update apt cache
   loop: '{{ apt_sources_files | ansible.builtin.dict2items }}'
   loop_control:
     label: '{{ item.key }}'
 
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: true
-    cache_valid_time: 3600
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers
 ...
