@@ -5,6 +5,8 @@
     update_cache: true
     cache_valid_time: 3600
     state: present
+  retries: 10
+  delay: 10
 
 - name: Update lvm.conf
   ansible.builtin.copy:
@@ -38,7 +40,7 @@
     vgcreate {{ lvm_create_opts }}
   changed_when: true
   when:
-    - lvm_pvs_sigs.results[i].stdout
+    - not lvm_pvs_sigs.results[i].stdout
     - item.vg not in lvm_facts_vgs | map(attribute='vg_name')
   loop: '{{ lvm_vgs }}'
   loop_control:
