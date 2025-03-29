@@ -62,12 +62,18 @@ resource "yandex_compute_instance" "iscsi" {
   }
   network_interface {
     subnet_id = yandex_vpc_subnet.default.id
+    ip_address = cidrhost(
+      one(yandex_vpc_subnet.default.v4_cidr_blocks), 11 + count.index
+    )
     nat       = false
   }
   dynamic "network_interface" {
     for_each = yandex_vpc_subnet.iscsi
     content {
       subnet_id = network_interface.value.id
+      ip_address = cidrhost(
+        one(network_interface.value.v4_cidr_blocks), 11 + count.index
+      )
       nat       = false
     }
   }
@@ -93,12 +99,18 @@ resource "yandex_compute_instance" "gfs" {
   }
   network_interface {
     subnet_id = yandex_vpc_subnet.default.id
+    ip_address = cidrhost(
+      one(yandex_vpc_subnet.default.v4_cidr_blocks), 21 + count.index
+    )
     nat       = false
   }
   dynamic "network_interface" {
     for_each = yandex_vpc_subnet.iscsi
     content {
       subnet_id = network_interface.value.id
+      ip_address = cidrhost(
+        one(network_interface.value.v4_cidr_blocks), 21 + count.index
+      )
       nat       = false
     }
   }
@@ -123,6 +135,9 @@ resource "yandex_compute_instance" "jumphost" {
   }
   network_interface {
     subnet_id = yandex_vpc_subnet.default.id
+    ip_address = cidrhost(
+      one(yandex_vpc_subnet.default.v4_cidr_blocks), 254
+    )
     nat       = true
   }
   metadata = local.yandex_compute_instance_metadata
