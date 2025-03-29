@@ -23,6 +23,7 @@
   become: true
   gather_facts: false
   roles:
+    - linux_modules
     - iscsi
     - mpath
     - corosync
