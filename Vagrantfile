@@ -16,47 +16,47 @@ DEFAULT_MACHINE = {
 }
 
 MACHINES = {
-  :'iscsi-01' => {
+  :'gfs-iscsi-01' => {
     :disks => { :disk01 => '10GB' },
     :intnets => {
-      :iscsi1 => { :ip => '10.130.1.11' },
-      :iscsi2 => { :ip => '10.130.2.11' },
+      :iscsi1 => { :ip => '10.131.0.11' },
+      :iscsi2 => { :ip => '10.132.0.11' },
     },
     :networks => { :private_network => { :ip => '192.168.56.11' } },
   },
-  :'iscsi-02' => {
+  :'gfs-iscsi-02' => {
     :disks => { :disk01 => '10GB' },
     :intnets => {
-      :iscsi1 => { :ip => '10.130.1.12' },
-      :iscsi2 => { :ip => '10.130.2.12' },
+      :iscsi1 => { :ip => '10.131.0.12' },
+      :iscsi2 => { :ip => '10.132.0.12' },
     },
     :networks => { :private_network => { :ip => '192.168.56.12' } },
   },
   :'gfs-01' => {
     :intnets => {
-      :iscsi1 => { :ip => '10.130.1.21' },
-      :iscsi2 => { :ip => '10.130.2.21' },
+      :iscsi1 => { :ip => '10.131.0.21' },
+      :iscsi2 => { :ip => '10.132.0.21' },
     },
     :networks => { :private_network => { :ip => '192.168.56.21' } },
   },
   :'gfs-02' => {
     :intnets => {
-      :iscsi1 => { :ip => '10.130.1.22' },
-      :iscsi2 => { :ip => '10.130.2.22' },
+      :iscsi1 => { :ip => '10.131.0.22' },
+      :iscsi2 => { :ip => '10.132.0.22' },
     },
     :networks => { :private_network => { :ip => '192.168.56.22' } },
   },
   :'gfs-03' => {
     :intnets => {
-      :iscsi1 => { :ip => '10.130.1.23' },
-      :iscsi2 => { :ip => '10.130.2.23' },
+      :iscsi1 => { :ip => '10.131.0.23' },
+      :iscsi2 => { :ip => '10.132.0.23' },
     },
     :networks => { :private_network => { :ip => '192.168.56.23' } },
   },
 }
 
 ANSIBLE_GROUPS = {
-  :iscsi => ['iscsi-01', 'iscsi-02'],
+  :iscsi => ['gfs-iscsi-01', 'gfs-iscsi-02'],
   :gfs => ['gfs-01', 'gfs-02', 'gfs-03'],
 }
 ANSIBLE_HOSTVARS = MACHINES.keys.each_with_object({}) {

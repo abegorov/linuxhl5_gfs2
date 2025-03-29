@@ -12,13 +12,13 @@ iscsi_config_override:
   node.session.auth.username_in: '{{ target_node_acl.chap_mutual_userid }}'
   node.session.auth.password_in: '{{ target_node_acl.chap_mutual_password }}'
 iscsi_portals:
-  - '{{ hostvars["iscsi-01"].ip_address_iscsi1 }}'
-  - '{{ hostvars["iscsi-01"].ip_address_iscsi2 }}'
-  - '{{ hostvars["iscsi-02"].ip_address_iscsi1 }}'
-  - '{{ hostvars["iscsi-02"].ip_address_iscsi2 }}'
+  - '{{ hostvars["gfs-iscsi-01"].ip_address_iscsi1 }}'
+  - '{{ hostvars["gfs-iscsi-01"].ip_address_iscsi2 }}'
+  - '{{ hostvars["gfs-iscsi-02"].ip_address_iscsi1 }}'
+  - '{{ hostvars["gfs-iscsi-02"].ip_address_iscsi2 }}'
 iscsi_targets:
-  - target: '{{ hostvars["iscsi-01"].target_wwn }}'
-  - target: '{{ hostvars["iscsi-02"].target_wwn }}'
+  - target: '{{ hostvars["gfs-iscsi-01"].target_wwn }}'
+  - target: '{{ hostvars["gfs-iscsi-02"].target_wwn }}'
 
 mpath_reservation_key: '{{ lookup("ansible.builtin.password",
   "secrets/mpath_reservation_key_{{ inventory_hostname }}.txt",
