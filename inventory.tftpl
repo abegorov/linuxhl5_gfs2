@@ -13,7 +13,7 @@ ${yamlencode(
             "-i \"${ssh_key_file}\"",
             "-l \"${ssh_username}\" -W %h:%p",
             "${group.jumphost.network_interface.0.nat_ip_address}'"
-          ])
+        ])
       }
       hosts = {
         for host in group.hosts :
