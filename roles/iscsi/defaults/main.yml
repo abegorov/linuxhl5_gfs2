@@ -29,16 +29,16 @@ iscsi_config_default:
   discovery.sendtargets.auth.password: ''
   discovery.sendtargets.auth.username_in: ''
   discovery.sendtargets.auth.password_in: ''
-  node.session.timeo.replacement_timeout: 120
-  node.conn[0].timeo.login_timeout: 15
-  node.conn[0].timeo.logout_timeout: 15
-  node.conn[0].timeo.noop_out_interval: 5
-  node.conn[0].timeo.noop_out_timeout: 5
-  node.session.err_timeo.abort_timeout: 15
-  node.session.err_timeo.lu_reset_timeout: 30
-  node.session.err_timeo.tgt_reset_timeout: 30
-  node.session.err_timeo.host_reset_timeout: 60
-  node.session.initial_login_retry_max: 8
+  node.session.timeo.replacement_timeout: 8
+  node.conn[0].timeo.login_timeout: 1
+  node.conn[0].timeo.logout_timeout: 1
+  node.conn[0].timeo.noop_out_interval: 1
+  node.conn[0].timeo.noop_out_timeout: 1
+  node.session.err_timeo.abort_timeout: 1
+  node.session.err_timeo.lu_reset_timeout: 2
+  node.session.err_timeo.tgt_reset_timeout: 2
+  node.session.err_timeo.host_reset_timeout: 4
+  node.session.initial_login_retry_max: 120
   node.session.cmds_max: 128
   node.session.queue_depth: 32
   node.session.iscsi.InitialR2T: false
