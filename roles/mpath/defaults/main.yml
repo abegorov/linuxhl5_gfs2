@@ -6,6 +6,9 @@ mpath_defaults:
   path_selector: round-robin 0
   path_grouping_policy: failover
   failback: immediate
+  polling_interval: 1
+  max_polling_interval: 4
+  no_path_retry: fail
 mpath_defaults_override: {}
 mpath_blacklist:
   - devnode "^(ram|raw|loop|fd|md|dm-|sr|scd|st)[0-9]*"
