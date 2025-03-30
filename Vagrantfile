@@ -17,39 +17,39 @@ DEFAULT_MACHINE = {
 
 MACHINES = {
   :'gfs-iscsi-01' => {
-    :disks => { :disk01 => '10GB' },
+    :disks => { :'gfs-iscsi-01-disk01' => '20GB' },
     :intnets => {
-      :iscsi1 => { :ip => '10.131.0.11' },
-      :iscsi2 => { :ip => '10.132.0.11' },
+      :'gfs-iscsi01' => { :ip => '10.131.0.11' },
+      :'gfs-iscsi02' => { :ip => '10.132.0.11' },
     },
     :networks => { :private_network => { :ip => '192.168.56.11' } },
   },
   :'gfs-iscsi-02' => {
-    :disks => { :disk01 => '10GB' },
+    :disks => { :'gfs-iscsi-02-disk01' => '20GB' },
     :intnets => {
-      :iscsi1 => { :ip => '10.131.0.12' },
-      :iscsi2 => { :ip => '10.132.0.12' },
+      :'gfs-iscsi01' => { :ip => '10.131.0.12' },
+      :'gfs-iscsi02' => { :ip => '10.132.0.12' },
     },
     :networks => { :private_network => { :ip => '192.168.56.12' } },
   },
   :'gfs-01' => {
     :intnets => {
-      :iscsi1 => { :ip => '10.131.0.21' },
-      :iscsi2 => { :ip => '10.132.0.21' },
+      :'gfs-iscsi01' => { :ip => '10.131.0.21' },
+      :'gfs-iscsi02' => { :ip => '10.132.0.21' },
     },
     :networks => { :private_network => { :ip => '192.168.56.21' } },
   },
   :'gfs-02' => {
     :intnets => {
-      :iscsi1 => { :ip => '10.131.0.22' },
-      :iscsi2 => { :ip => '10.132.0.22' },
+      :'gfs-iscsi01' => { :ip => '10.131.0.22' },
+      :'gfs-iscsi02' => { :ip => '10.132.0.22' },
     },
     :networks => { :private_network => { :ip => '192.168.56.22' } },
   },
   :'gfs-03' => {
     :intnets => {
-      :iscsi1 => { :ip => '10.131.0.23' },
-      :iscsi2 => { :ip => '10.132.0.23' },
+      :'gfs-iscsi01' => { :ip => '10.131.0.23' },
+      :'gfs-iscsi02' => { :ip => '10.132.0.23' },
     },
     :networks => { :private_network => { :ip => '192.168.56.23' } },
   },
@@ -62,8 +62,8 @@ ANSIBLE_GROUPS = {
 ANSIBLE_HOSTVARS = MACHINES.keys.each_with_object({}) {
   |key, obj| obj[key] = {
     'ip_address' => MACHINES[key][:networks][:private_network][:ip],
-    'ip_address_iscsi1' => MACHINES[key][:intnets][:iscsi1][:ip],
-    'ip_address_iscsi2' => MACHINES[key][:intnets][:iscsi2][:ip],
+    'ip_address_iscsi1' => MACHINES[key][:intnets][:'gfs-iscsi01'][:ip],
+    'ip_address_iscsi2' => MACHINES[key][:intnets][:'gfs-iscsi02'][:ip],
   }
 }
 
