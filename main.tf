@@ -102,7 +102,7 @@ resource "yandex_compute_instance" "gfs" {
     ip_address = cidrhost(
       one(yandex_vpc_subnet.default.v4_cidr_blocks), 21 + count.index
     )
-    nat       = false
+    nat       = count.index == 0
   }
   dynamic "network_interface" {
     for_each = yandex_vpc_subnet.iscsi
@@ -116,32 +116,6 @@ resource "yandex_compute_instance" "gfs" {
   }
   metadata = local.yandex_compute_instance_metadata
 }
-resource "yandex_compute_instance" "jumphost" {
-  name        = "${var.project}-jumphost"
-  hostname    = "${var.project}-jumphost"
-  platform_id = "standard-v3"
-  resources {
-    cores         = 2
-    memory        = 1
-    core_fraction = 20
-  }
-  scheduling_policy { preemptible = true }
-  boot_disk {
-    initialize_params {
-      image_id = data.yandex_compute_image.ubuntu2404.id
-      size     = 20
-      type     = "network-hdd"
-    }
-  }
-  network_interface {
-    subnet_id = yandex_vpc_subnet.default.id
-    ip_address = cidrhost(
-      one(yandex_vpc_subnet.default.v4_cidr_blocks), 254
-    )
-    nat       = true
-  }
-  metadata = local.yandex_compute_instance_metadata
-}
 resource "local_file" "inventory" {
   filename = "${path.root}/inventory.yml"
   content = templatefile("${path.module}/inventory.tftpl", {
@@ -152,13 +126,13 @@ resource "local_file" "inventory" {
         name  = "iscsi"
         hosts = yandex_compute_instance.iscsi
         ipvars = ["ip_address_iscsi1", "ip_address_iscsi2"]
-        jumphost = yandex_compute_instance.jumphost
+        jumphost = yandex_compute_instance.gfs.0
       },
       {
         name     = "gfs",
         hosts    = yandex_compute_instance.gfs
         ipvars = ["ip_address_iscsi1", "ip_address_iscsi2"]
-        jumphost = yandex_compute_instance.jumphost
+        jumphost = yandex_compute_instance.gfs.0
       }
     ],
   })
