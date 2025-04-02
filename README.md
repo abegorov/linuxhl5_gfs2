@@ -239,6 +239,34 @@ Consistency Policy : bitmap
 
 Отказоустойчивый кластер работает.
 
+### Проверка fencing
+
+Убьём процесс **corosync** на одном из узлов. В логах появится запись о перезагрузке **gfs-03**:
+
+```text
+root@gfs-01:~# pcs stonith history
+reboot of gfs-03 successful: delegate=gfs-01, client=pacemaker-controld.1167, origin=gfs-01, completed='2025-04-02 21:07:14.322172Z'
+```
+
+При попытке записать что-то на диски **/dev/mapper/mpatha** и **/dev/mapper/mpathb** на узле **gfs-03** получим ошибку в **dmesg**:
+
+```text
+[Wed Apr  2 21:11:47 2025] sd 17:0:0:1: reservation conflict
+[Wed Apr  2 21:11:47 2025] sd 17:0:0:1: [sdd] tag#69 FAILED Result: hostbyte=DID_OK driverbyte=DRIVER_OK cmd_age=0s
+[Wed Apr  2 21:11:47 2025] sd 17:0:0:1: [sdd] tag#69 CDB: Write(10) 2a 00 00 00 00 00 00 00 08 00
+[Wed Apr  2 21:11:47 2025] reservation conflict error, dev sdd, sector 0 op 0x1:(WRITE) flags 0x4a00 phys_seg 1 prio class 0
+[Wed Apr  2 21:11:47 2025] reservation conflict error, dev dm-1, sector 0 op 0x1:(WRITE) flags 0x800 phys_seg 1 prio class 0
+[Wed Apr  2 21:11:47 2025] Buffer I/O error on dev dm-1, logical block 0, lost async page write
+[Wed Apr  2 21:12:08 2025] sd 19:0:0:1: reservation conflict
+[Wed Apr  2 21:12:08 2025] sd 19:0:0:1: [sde] tag#5 FAILED Result: hostbyte=DID_OK driverbyte=DRIVER_OK cmd_age=0s
+[Wed Apr  2 21:12:08 2025] sd 19:0:0:1: [sde] tag#5 CDB: Write(10) 2a 00 00 00 00 00 00 00 08 00
+[Wed Apr  2 21:12:08 2025] reservation conflict error, dev sde, sector 0 op 0x1:(WRITE) flags 0x4a00 phys_seg 1 prio class 0
+[Wed Apr  2 21:12:08 2025] reservation conflict error, dev dm-2, sector 0 op 0x1:(WRITE) flags 0x800 phys_seg 1 prio class 0
+[Wed Apr  2 21:12:08 2025] Buffer I/O error on dev dm-2, logical block 0, lost async page write
+```
+
+Сами данные останутся в буфере на **gfs-03**, однако их не увидят другие узлы.
+
 ### Проверка iSCSI Target
 
 ```text
