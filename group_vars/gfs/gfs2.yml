@@ -3,9 +3,11 @@ mdadm_raid_device: /dev/md/cluster-md
 mdadm_raid_uuid: '{{ lookup("ansible.builtin.password",
   "secrets/mdadm_raid_uuid.txt") | ansible.builtin.to_uuid |
   replace("-", "") | slice(4) | map("join") | join(":") }}'
+mdadm_component_device1: /dev/mapper/mpatha
+mdadm_component_device2: /dev/mapper/mpathb
 mdadm_component_devices:
-  - /dev/mapper/mpatha
-  - /dev/mapper/mpathb
+  - '{{ mdadm_component_device1 }}'
+  - '{{ mdadm_component_device2 }}'
 mdadm_conf: |
   HOMEHOST <system>
   MAILADDR root

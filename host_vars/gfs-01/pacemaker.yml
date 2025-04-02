@@ -32,6 +32,36 @@ pacemaker_config:
           <op name="monitor" interval="1s" id="mpath-fencing-monitor-interval-1s"/>
         </operations>
       </primitive>
+      <primitive id="mpath-fencing1" class="stonith" type="fence_mpath">
+        <instance_attributes id="mpath-fencing1-instance_attributes">
+          <nvpair id="mpath-fencing1-instance_attributes-devices" name="devices" value="{{ mdadm_component_device1 }}"/>
+          <nvpair id="mpath-fencing1-instance_attributes-pcmk_host_argument" name="pcmk_host_argument" value="key"/>
+          <nvpair id="mpath-fencing1-instance_attributes-pcmk_host_map" name="pcmk_host_map" value="{{ pcmk_host_map }}"/>
+          <nvpair id="mpath-fencing1-instance_attributes-pcmk_monitor_action" name="pcmk_monitor_action" value="metadata"/>
+          <nvpair id="mpath-fencing1-1instance_attributes-pcmk_reboot_action" name="pcmk_reboot_action" value="off"/>
+        </instance_attributes>
+        <meta_attributes id="mpath-fencing1-meta_attributes">
+          <nvpair id="mpath-fencing1-meta_attributes-provides" name="provides" value="unfencing"/>
+        </meta_attributes>
+        <operations>
+          <op name="monitor" interval="1s" id="mpath-fencing1-monitor-interval-1s"/>
+        </operations>
+      </primitive>
+      <primitive id="mpath-fencing2" class="stonith" type="fence_mpath">
+        <instance_attributes id="mpath-fencing2-instance_attributes">
+          <nvpair id="mpath-fencing2-instance_attributes-devices" name="devices" value="{{ mdadm_component_device2 }}"/>
+          <nvpair id="mpath-fencing2-instance_attributes-pcmk_host_argument" name="pcmk_host_argument" value="key"/>
+          <nvpair id="mpath-fencing2-instance_attributes-pcmk_host_map" name="pcmk_host_map" value="{{ pcmk_host_map }}"/>
+          <nvpair id="mpath-fencing2-instance_attributes-pcmk_monitor_action" name="pcmk_monitor_action" value="metadata"/>
+          <nvpair id="mpath-fencing2-1instance_attributes-pcmk_reboot_action" name="pcmk_reboot_action" value="off"/>
+        </instance_attributes>
+        <meta_attributes id="mpath-fencing2-meta_attributes">
+          <nvpair id="mpath-fencing2-meta_attributes-provides" name="provides" value="unfencing"/>
+        </meta_attributes>
+        <operations>
+          <op name="monitor" interval="1s" id="mpath-fencing2-monitor-interval-1s"/>
+        </operations>
+      </primitive>
       <clone id="dlm-clone">
         <primitive id="dlm" class="systemd" type="dlm">
           <operations>
@@ -43,6 +73,7 @@ pacemaker_config:
         <meta_attributes id="dlm-clone-meta_attributes">
           <nvpair id="dlm-clone-meta_attributes-interleave" name="interleave" value="true"/>
           <nvpair id="dlm-clone-meta_attributes-ordered" name="ordered" value="true"/>
+          <nvpair id="dlm-clone-meta_attributes-recuires" name="recuires" value="nothing"/>
         </meta_attributes>
       </clone>
       <clone id="lvmlockd-clone">
@@ -56,6 +87,7 @@ pacemaker_config:
         <meta_attributes id="lvmlockd-clone-meta_attributes">
           <nvpair id="lvmlockd-clone-meta_attributes-interleave" name="interleave" value="true"/>
           <nvpair id="lvmlockd-clone-meta_attributes-ordered" name="ordered" value="true"/>
+          <nvpair id="lvmlockd-clone-meta_attributes-recuires" name="recuires" value="nothing"/>
         </meta_attributes>
       </clone>
       <clone id="cluster-md-clone">
@@ -111,6 +143,12 @@ pacemaker_config:
         </meta_attributes>
       </clone>
     </resources>
+  fencing-topology: |
+    <fencing-topology>
+      <fencing-level index="1" devices="mpath-fencing" target-pattern=".+" id="fl-.-1"/>
+      <fencing-level index="2" devices="mpath-fencing1" target-pattern=".+" id="fl-.-2"/>
+      <fencing-level index="3" devices="mpath-fencing2" target-pattern=".+" id="fl-.-3"/>
+    </fencing-topology>
   constraints: |
     <constraints>
       <rsc_order first="dlm-clone" then="lvmlockd-clone" first-action="start" then-action="start" id="order-dlm-clone-lvmlockd-clone-mandatory"/>
@@ -120,4 +158,5 @@ pacemaker_config:
       <rsc_order first="cluster-lv-clone" then="cluster-fs-clone" first-action="start" then-action="start" id="order-cluster-lv-clone-cluster-fs-clone-mandatory"/>
       <rsc_colocation rsc="cluster-fs-clone" with-rsc="cluster-lv-clone" score="INFINITY" id="colocation-cluster-fs-clone-cluster-lv-clone-INFINITY"/>
     </constraints>
+
 ...

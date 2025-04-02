@@ -1,3 +1,3 @@
 ---
-pacemaker_scopes: [crm_config, resources, constraints]
+pacemaker_scopes: [crm_config, resources, fencing-topology, constraints]
 ...
