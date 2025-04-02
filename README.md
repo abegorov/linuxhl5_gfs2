@@ -29,6 +29,12 @@
 
 Для выполнения **fencing** (используется агент **fence_mpath**) и автоматического поднятия файловой системы после перезагрузки используется **pacemaker**. Обмен сообщениями между узлами кластера поддерживается с помощью **corosync** (настроена отказоустойчивая конфигурация с использованием трёх колец). В качестве распределённого менеджера блокировок используется **dlm**, который в свою очередь используется **MD Cluster**, **lvmlockd** и **gfs2** для блокировок доступа к ресурсам между узлами кластера.
 
+Остановка службу **dlm** и **lvmlockd** часто завершается зависанием системы (особенно при авариях). Чтобы **pacemaker** этого не делал для них установлен атрибут **requires** со значением **nothing**. По умолчанию **pacemaker** производит остановку ресурсов при невозможности выполнить **unfencing** (атрибут **requires** имеет значение **unfencing**). В нашем случае это нормальная ситуация (при выходе из строя одного диска), поэтому чтобы выход одного диска не приводит к остановке файловой системы и потере отказоустойчивости настроены три **fencing** устройства и **fencing topology** со следующими уровнями:
+
+1. **mpath-fencing** - пытается выполнить **fencing** обоих устройств;
+2. **mpath-fencing1** - пытается выполнить **fencing** первого устройства в зеркале;
+3. **mpath-fencing2** - пытается выполнить **fencing** второго устройства в зеркале.
+
 В независимости от того, как созданы виртуальные машины, для их настройки запускается **Ansible Playbook** [provision.yml](provision.yml) который последовательно запускает следующие роли:
 
 - **wait_connection** - ожидает доступность виртуальных машин.
@@ -110,25 +116,128 @@ Filesystem                          Type  Size  Used Avail Use% Mounted on
 
 ❯ vagrant ssh gfs-03 -c 'df -Tht gfs2'
 Filesystem                          Type  Size  Used Avail Use% Mounted on
-/dev/mapper/cluster--vg-cluster--lv gfs2   20G  100M   20G   1% /mnt/cluster-f
+/dev/mapper/cluster--vg-cluster--lv gfs2   20G  100M   20G   1% /mnt/cluster-fs
 
 ❯ vagrant ssh gfs-01 -c 'sudo dd if=/dev/zero of=/mnt/cluster-fs/file01 bs=1M count=100'
 100+0 records in
 100+0 records out
-104857600 bytes (105 MB, 100 MiB) copied, 0.755457 s, 139 MB/s
+104857600 bytes (105 MB, 100 MiB) copied, 0.493007 s, 213 MB/s
 
 ❯ vagrant ssh gfs-02 -c 'sudo dd if=/dev/zero of=/mnt/cluster-fs/file02 bs=1M count=100'
 100+0 records in
 100+0 records out
-104857600 bytes (105 MB, 100 MiB) copied, 0.565855 s, 185 MB/s
+104857600 bytes (105 MB, 100 MiB) copied, 0.729174 s, 144 MB/s
 
 ❯ vagrant ssh gfs-03 -c 'ls -la /mnt/cluster-fs'
 total 205224
-drwxr-xr-x 2 root root      3864 Mar 30 16:52 .
-drwxr-xr-x 3 root root      4096 Mar 30 11:16 ..
--rw-r--r-- 1 root root 104857600 Mar 30 16:51 file01
--rw-r--r-- 1 root root 104857600 Mar 30 16:52 file02
+drwxr-xr-x 2 root root      3864 Apr  2 20:01 .
+drwxr-xr-x 3 root root      4096 Apr  2 19:40 ..
+-rw-r--r-- 1 root root 104857600 Apr  2 20:01 file01
+-rw-r--r-- 1 root root 104857600 Apr  2 20:01 file02
 ```
+
+Выключим узел **gfs-iscsi-01** и проверим доступность файловой системы. Получаем запись в логах:
+
+```text
+[Wed Apr  2 20:15:06 2025] md/raid1:md127: Disk failure on dm-1, disabling device.
+                           md/raid1:md127: Operation continuing on 1 devices.
+```
+
+Файловая система осталась доступна:
+
+```text
+❯ vagrant ssh gfs-01 -c 'ls -la /mnt/cluster-fs'
+total 205224
+drwxr-xr-x 2 root root      3864 Apr  2 20:01 .
+drwxr-xr-x 3 root root      4096 Apr  2 19:40 ..
+-rw-r--r-- 1 root root 104857600 Apr  2 20:01 file01
+-rw-r--r-- 1 root root 104857600 Apr  2 20:01 file02
+```
+
+Посмотрим состояние **RAID** массива:
+
+```text
+❯ vagrant ssh gfs-01 -c 'cat /proc/mdstat'
+Personalities : [raid0] [raid1] [raid6] [raid5] [raid4] [raid10]
+md127 : active raid1 dm-2[1] dm-1[0](F)
+      20952064 blocks super 1.2 [2/1] [_U]
+      bitmap: 1/1 pages [4KB], 65536KB chunk
+
+unused devices: <none>
+
+❯ vagrant ssh gfs-01 -c 'sudo mdadm --detail /dev/md/cluster-md'
+/dev/md/cluster-md:
+           Version : 1.2
+     Creation Time : Wed Apr  2 19:39:37 2025
+        Raid Level : raid1
+        Array Size : 20952064 (19.98 GiB 21.45 GB)
+     Used Dev Size : 20952064 (19.98 GiB 21.45 GB)
+      Raid Devices : 2
+     Total Devices : 2
+       Persistence : Superblock is persistent
+
+     Intent Bitmap : Internal(Clustered)
+
+       Update Time : Wed Apr  2 20:13:34 2025
+             State : clean, degraded
+    Active Devices : 1
+   Working Devices : 1
+    Failed Devices : 1
+     Spare Devices : 0
+
+Consistency Policy : bitmap
+
+              Name : gfs-01:cluster-md  (local to host gfs-01)
+      Cluster Name : gfs2
+              UUID : b2f32024:ad8c599e:892d703e:f58f3257
+            Events : 656
+
+    Number   Major   Minor   RaidDevice State
+       -       0        0        0      removed
+       1     252        2        1      active sync   /dev/dm-2
+
+       0     252        1        -      faulty   /dev/dm-1
+```
+
+Включим узел и передобавим диск в массив:
+
+```text
+❯ vagrant ssh gfs-01 -c 'sudo mdadm --manage /dev/md/cluster-md --re-add /dev/mapper/mpatha'
+mdadm: re-add /dev/mapper/mpatha to md127 succeed
+
+❯ vagrant ssh gfs-01 -c 'sudo mdadm --detail /dev/md/cluster-md'
+/dev/md/cluster-md:
+           Version : 1.2
+     Creation Time : Wed Apr  2 19:39:37 2025
+        Raid Level : raid1
+        Array Size : 20952064 (19.98 GiB 21.45 GB)
+     Used Dev Size : 20952064 (19.98 GiB 21.45 GB)
+      Raid Devices : 2
+     Total Devices : 2
+       Persistence : Superblock is persistent
+
+     Intent Bitmap : Internal(Clustered)
+
+       Update Time : Wed Apr  2 20:18:18 2025
+             State : clean
+    Active Devices : 2
+   Working Devices : 2
+    Failed Devices : 0
+     Spare Devices : 0
+
+Consistency Policy : bitmap
+
+              Name : gfs-01:cluster-md  (local to host gfs-01)
+      Cluster Name : gfs2
+              UUID : b2f32024:ad8c599e:892d703e:f58f3257
+            Events : 661
+
+    Number   Major   Minor   RaidDevice State
+       0     252        1        0      active sync   /dev/dm-1
+       1     252        2        1      active sync   /dev/dm-2
+```
+
+Отказоустойчивый кластер работает.
 
 ### Проверка iSCSI Target
 
@@ -222,9 +331,9 @@ Target: iqn.2025-03.ru.abegorov:gfs2:gfs-iscsi-01 (non-flash)
                 Timeouts:
                 *********
                 Recovery Timeout: 5
-                Target Reset Timeout: 30
-                LUN Reset Timeout: 30
-                Abort Timeout: 15
+                Target Reset Timeout: 2
+                LUN Reset Timeout: 2
+                Abort Timeout: 1
                 *****
                 CHAP:
                 *****
@@ -269,9 +378,9 @@ Target: iqn.2025-03.ru.abegorov:gfs2:gfs-iscsi-01 (non-flash)
                 Timeouts:
                 *********
                 Recovery Timeout: 5
-                Target Reset Timeout: 30
-                LUN Reset Timeout: 30
-                Abort Timeout: 15
+                Target Reset Timeout: 2
+                LUN Reset Timeout: 2
+                Abort Timeout: 1
                 *****
                 CHAP:
                 *****
@@ -317,9 +426,9 @@ Target: iqn.2025-03.ru.abegorov:gfs2:gfs-iscsi-02 (non-flash)
                 Timeouts:
                 *********
                 Recovery Timeout: 5
-                Target Reset Timeout: 30
-                LUN Reset Timeout: 30
-                Abort Timeout: 15
+                Target Reset Timeout: 2
+                LUN Reset Timeout: 2
+                Abort Timeout: 1
                 *****
                 CHAP:
                 *****
@@ -364,9 +473,9 @@ Target: iqn.2025-03.ru.abegorov:gfs2:gfs-iscsi-02 (non-flash)
                 Timeouts:
                 *********
                 Recovery Timeout: 5
-                Target Reset Timeout: 30
-                LUN Reset Timeout: 30
-                Abort Timeout: 15
+                Target Reset Timeout: 2
+                LUN Reset Timeout: 2
+                Abort Timeout: 1
                 *****
                 CHAP:
                 *****
@@ -574,8 +683,8 @@ runtime.services.cpg.1.rx (u64) = 1
 runtime.services.cpg.1.tx (u64) = 1
 runtime.services.cpg.2.rx (u64) = 0
 runtime.services.cpg.2.tx (u64) = 0
-runtime.services.cpg.3.rx (u64) = 359
-runtime.services.cpg.3.tx (u64) = 98
+runtime.services.cpg.3.rx (u64) = 367
+runtime.services.cpg.3.tx (u64) = 92
 runtime.services.cpg.4.rx (u64) = 0
 runtime.services.cpg.4.tx (u64) = 0
 runtime.services.cpg.5.rx (u64) = 6
@@ -626,17 +735,17 @@ dlm lockspaces
 name          gfs2
 id            0xe4f48a18
 flags         0x00000000
-change        member 3 joined 1 remove 0 failed 0 seq 1,1
+change        member 3 joined 1 remove 0 failed 0 seq 2,3
 members       1 2 3
 all nodes
 nodeid 1 member 1 failed 0 start 1 seq_add 1 seq_rem 0 check none
-nodeid 2 member 1 failed 0 start 1 seq_add 1 seq_rem 0 check none
-nodeid 3 member 1 failed 0 start 1 seq_add 1 seq_rem 0 check none
+nodeid 2 member 1 failed 0 start 1 seq_add 2 seq_rem 0 check none
+nodeid 3 member 1 failed 0 start 1 seq_add 3 seq_rem 0 check none
 
 name          lvm_cluster-vg
 id            0x998ea520
 flags         0x00000000
-change        member 3 joined 1 remove 0 failed 0 seq 3,3
+change        member 3 joined 1 remove 0 failed 0 seq 2,3
 members       1 2 3
 all nodes
 nodeid 1 member 1 failed 0 start 1 seq_add 1 seq_rem 0 check none
@@ -660,8 +769,8 @@ change        member 3 joined 1 remove 0 failed 0 seq 3,3
 members       1 2 3
 all nodes
 nodeid 1 member 1 failed 0 start 1 seq_add 1 seq_rem 0 check none
-nodeid 2 member 1 failed 0 start 1 seq_add 2 seq_rem 0 check none
-nodeid 3 member 1 failed 0 start 1 seq_add 3 seq_rem 0 check none
+nodeid 2 member 1 failed 0 start 1 seq_add 3 seq_rem 0 check none
+nodeid 3 member 1 failed 0 start 1 seq_add 2 seq_rem 0 check none
 ```
 
 ### Проверка Pacemaker
@@ -675,11 +784,11 @@ Pacemaker 2.1.6 (Build: 6fdc9deea29)
 Cluster Status:
  Cluster Summary:
    * Stack: corosync (Pacemaker is running)
-   * Current DC: gfs-02 (version 2.1.6-6fdc9deea29) - partition with quorum
-   * Last updated: Sun Mar 30 16:29:39 2025 on gfs-01
-   * Last change:  Sun Mar 30 11:21:29 2025 by root via cibadmin on gfs-01
+   * Current DC: gfs-03 (version 2.1.6-6fdc9deea29) - partition with quorum
+   * Last updated: Wed Apr  2 20:07:35 2025 on gfs-01
+   * Last change:  Wed Apr  2 19:46:34 2025 by root via cibadmin on gfs-01
    * 3 nodes configured
-   * 16 resource instances configured
+   * 18 resource instances configured
  Node List:
    * Online: [ gfs-01 gfs-02 gfs-03 ]
 
@@ -693,17 +802,19 @@ Warning: Unable to read the known-hosts file: No such file or directory: '/var/l
 Cluster name: gfs2
 Cluster Summary:
   * Stack: corosync (Pacemaker is running)
-  * Current DC: gfs-02 (version 2.1.6-6fdc9deea29) - partition with quorum
-  * Last updated: Sun Mar 30 16:30:20 2025 on gfs-01
-  * Last change:  Sun Mar 30 11:21:29 2025 by root via cibadmin on gfs-01
+  * Current DC: gfs-03 (version 2.1.6-6fdc9deea29) - partition with quorum
+  * Last updated: Wed Apr  2 20:07:48 2025 on gfs-01
+  * Last change:  Wed Apr  2 19:46:34 2025 by root via cibadmin on gfs-01
   * 3 nodes configured
-  * 16 resource instances configured
+  * 18 resource instances configured
 
 Node List:
   * Online: [ gfs-01 gfs-02 gfs-03 ]
 
 Full List of Resources:
   * mpath-fencing       (stonith:fence_mpath):   Started gfs-01
+  * mpath-fencing1      (stonith:fence_mpath):   Started gfs-02
+  * mpath-fencing2      (stonith:fence_mpath):   Started gfs-03
   * Clone Set: dlm-clone [dlm]:
     * Started: [ gfs-01 gfs-02 gfs-03 ]
   * Clone Set: lvmlockd-clone [lvmlockd]:
@@ -737,6 +848,36 @@ Resource: mpath-fencing (class=stonith type=fence_mpath)
   Operations:
     monitor: mpath-fencing-monitor-interval-1s
       interval=1s
+Resource: mpath-fencing1 (class=stonith type=fence_mpath)
+  Attributes: mpath-fencing1-instance_attributes
+    devices=/dev/mapper/mpatha
+    pcmk_host_argument=key
+    pcmk_host_map=gfs-01:f4cac3424bcbc846;gfs-02:b391cf047d190220;gfs-03:a124746b316ae011
+    pcmk_monitor_action=metadata
+    pcmk_reboot_action=off
+  Meta Attributes: mpath-fencing1-meta_attributes
+    provides=unfencing
+  Operations:
+    monitor: mpath-fencing1-monitor-interval-1s
+      interval=1s
+Resource: mpath-fencing2 (class=stonith type=fence_mpath)
+  Attributes: mpath-fencing2-instance_attributes
+    devices=/dev/mapper/mpathb
+    pcmk_host_argument=key
+    pcmk_host_map=gfs-01:f4cac3424bcbc846;gfs-02:b391cf047d190220;gfs-03:a124746b316ae011
+    pcmk_monitor_action=metadata
+    pcmk_reboot_action=off
+  Meta Attributes: mpath-fencing2-meta_attributes
+    provides=unfencing
+  Operations:
+    monitor: mpath-fencing2-monitor-interval-1s
+      interval=1s
+
+Fencing Levels:
+ Target (regexp): .+
+   Level 1 - mpath-fencing
+   Level 2 - mpath-fencing1
+   Level 3 - mpath-fencing2
 ```
 
 ### Проверка MD Cluster
@@ -745,7 +886,7 @@ Resource: mpath-fencing (class=stonith type=fence_mpath)
 ❯ vagrant ssh gfs-01 -c 'sudo mdadm --detail /dev/md/cluster-md'
 /dev/md/cluster-md:
            Version : 1.2
-     Creation Time : Sun Mar 30 11:16:05 2025
+     Creation Time : Wed Apr  2 19:39:37 2025
         Raid Level : raid1
         Array Size : 20952064 (19.98 GiB 21.45 GB)
      Used Dev Size : 20952064 (19.98 GiB 21.45 GB)
@@ -755,7 +896,7 @@ Resource: mpath-fencing (class=stonith type=fence_mpath)
 
      Intent Bitmap : Internal(Clustered)
 
-       Update Time : Sun Mar 30 11:21:21 2025
+       Update Time : Wed Apr  2 19:44:52 2025
              State : clean
     Active Devices : 2
    Working Devices : 2
@@ -767,7 +908,7 @@ Consistency Policy : bitmap
               Name : gfs-01:cluster-md  (local to host gfs-01)
       Cluster Name : gfs2
               UUID : b2f32024:ad8c599e:892d703e:f58f3257
-            Events : 649
+            Events : 650
 
     Number   Major   Minor   RaidDevice State
        0     252        1        0      active sync   /dev/dm-1
@@ -794,14 +935,14 @@ Consistency Policy : bitmap
 ❯ vagrant ssh gfs-01 -c 'sudo gfs2_edit -p journals /dev/cluster-vg/cluster-lv'
 Block #Journal Status:       of 5229568 (0x4fcc00)
 -------------------- Journal List --------------------
-journal0: 0x12    32MB clean.
-journal1: 0x2027  32MB clean.
+journal0: 0x12    32MB dirty.
+journal1: 0x2027  32MB dirty.
 journal2: 0x403c  32MB clean.
 ------------------------------------------------------
 
 ❯ vagrant ssh gfs-01 -c 'sudo tunegfs2 -l /dev/cluster-vg/cluster-lv'
 File system volume name: gfs2:gfs2
-File system UUID: bbe5f7b5-87f7-41f7-ba79-d768af134144
+File system UUID: ba54fb20-5018-4e49-acdd-2f461ead56fd
 File system magic number: 0x1161970
 File system format version: 1802
 Block size: 4096
@@ -812,158 +953,165 @@ Lock protocol: lock_dlm
 Lock table: gfs2:gfs2
 
 ❯ vagrant ssh gfs-01 -c 'sudo cat /sys/kernel/debug/gfs2/gfs2:gfs2/glocks'
-G:  s:EX n:2/6259 f:Iqob t:EX d:EX/0 a:0 v:0 r:4 m:200 p:1
- H: s:EX f:H e:0 p:0 [(none)] init_journal+0x205/0x630 [gfs2]
- I: n:14/25177 t:8 f:0x00 d:0x00000201 s:24 p:0
-G:  s:UN n:3/40e7d4 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/30075f f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/41e5f9 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/f448a f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/37f887 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/241da3 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/4cd190 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/11 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:2/2027 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/5570e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/2e0b15 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/1735ba f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/45de8d f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/403c f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
- I: n:3/16444 t:8 f:0x00 d:0x00000200 s:33554432 p:0
-G:  s:UN n:3/33fff3 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/3bf11b f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/25c9c f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/39f4d1 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/12 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
- I: n:1/18 t:8 f:0x00 d:0x00000000 s:0 p:0
-G:  s:UN n:3/1f26ea f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:2/6360 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/6156 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
- I: n:11/24918 t:8 f:0x00 d:0x00000000 s:0 p:0
-G:  s:UN n:3/35ac2 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/1833e0 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:4/0 f:Ib t:SH d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/458e8 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/94fa6 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:2/12 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/29145c f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:2/635c f:ILon t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:2/2024 f:ILob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:1
- I: n:4/8228 t:4 f:0x00 d:0x00000201 s:3864 p:0
-G:  s:UN n:3/2026 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/1140d6 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/38f6ac f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/43e243 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:1/3 f: t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
 G:  s:UN n:3/1e28c4 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/133d22 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/3eeb8a f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/3cef40 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/251bc8 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/4dcfb5 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:2/604e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/a4dcc f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/c4a18 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/46dcb2 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/604e f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
- I: n:8/24654 t:8 f:0x00 d:0x00000000 s:0 p:0
-G:  s:EX n:9/2 f:Iqb t:EX d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:EX f:ecH e:0 p:0 [(none)] init_journal+0x2cb/0x630 [gfs2]
-G:  s:UN n:3/44e068 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
 G:  s:UN n:3/2c0ecb f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:1/2 f:Iqb t:SH d:EX/0 a:0 v:0 r:4 m:200 p:0
+ H: s:SH f:eEH e:0 p:20893 [(ended)] gfs2_fill_super+0x5e0/0x900 [gfs2]
+G:  s:UN n:2/635c f:ILon t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/1b2e52 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/36fa62 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/1833e0 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:2/6259 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/4ecdda f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/11 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/2d0cf0 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/5570e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:2/6360 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:EX n:9/0 f:Iqb t:EX d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:EX f:ecH e:0 p:0 [(none)] init_journal+0x2cb/0x630 [gfs2]
+G:  s:UN n:3/1735ba f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/94fa6 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
 G:  s:SH n:1/1 f:Iqb t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
  H: s:SH f:eEH e:0 p:0 [(none)] gfs2_fill_super+0x31c/0x900 [gfs2]
-G:  s:UN n:3/310584 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/20250f f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/47dad7 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/6360 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
- I: n:19/25440 t:8 f:0x00 d:0x00000000 s:0 p:0
-G:  s:UN n:3/403b f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/e4664 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/123efc f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/15396e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/34fe18 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/30075f f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/f448a f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
 G:  s:UN n:3/2619ed f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/231f7e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:1/3 f: t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/48d8fc f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/35fc3d f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/6050 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/d483e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/193206 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/3203a9 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/212334 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/2027 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
- I: n:2/8231 t:8 f:0x00 d:0x00000000 s:0 p:0
-G:  s:UN n:3/1b2e52 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/42e41e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:EX n:2/625a f:Iqob t:EX d:EX/0 a:0 v:0 r:4 m:200 p:257
- H: s:EX f:H e:0 p:0 [(none)] get_tree_bdev+0x133/0x1d0
- I: n:15/25178 t:8 f:0x00 d:0x00000200 s:1048576 p:0
+G:  s:UN n:3/33fff3 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/4bd36b f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/2a1281 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/40e7d4 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/7535a f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/2b10a6 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
 G:  s:SH n:5/2024 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
  H: s:SH f:EH e:0 p:0 [(none)] gfs2_lookup_root+0x2c/0xc0 [gfs2]
  I: n:4/8228 t:4 f:0x00 d:0x00000201 s:3864 p:0
-G:  s:UN n:3/15e76 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/2025 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
- I: n:5/8229 t:4 f:0x00 d:0x00000201 s:3864 p:0
-G:  s:UN n:3/7535a f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/4ecdda f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/49d721 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/2d0cf0 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/1042b0 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:2/6361 f:ILob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:1
- I: n:20/25441 t:4 f:0x00 d:0x00000001 s:3864 p:0
-G:  s:UN n:3/3fe9af f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/38f6ac f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/65534 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:2/6156 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/36fa62 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/4bd36b f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/2b10a6 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/143b48 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/6361 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_lookup_root+0x2c/0xc0 [gfs2]
- I: n:20/25441 t:4 f:0x00 d:0x00000001 s:3864 p:0
-G:  s:UN n:3/2f093a f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/281637 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:2/4039 f:ILb t:SH d:EX/0 a:0 v:0 r:2 m:200 p:1
-G:  s:UN n:3/3301ce f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:2/2025 f:Iob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:1
- I: n:5/8229 t:4 f:0x00 d:0x00000201 s:3864 p:0
-G:  s:UN n:3/3af2f6 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/2a1281 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/43e243 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/6259 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
- I: n:14/25177 t:8 f:0x00 d:0x00000201 s:24 p:0
-G:  s:UN n:3/4ad546 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/3ded65 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:5/625a f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
- H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
- I: n:15/25178 t:8 f:0x00 d:0x00000200 s:1048576 p:0
-G:  s:UN n:3/271812 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:1/2 f:Iqb t:SH d:EX/0 a:0 v:0 r:4 m:200 p:0
- H: s:SH f:eEH e:0 p:20871 [(ended)] gfs2_fill_super+0x5e0/0x900 [gfs2]
 G:  s:UN n:3/85180 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/222159 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
 G:  s:SH n:5/635d f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
  H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
  I: n:18/25437 t:8 f:0x00 d:0x00000201 s:7968 p:2
+G:  s:UN n:3/35ac2 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:2/2024 f:ILob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:1
+ I: n:4/8228 t:4 f:0x00 d:0x00000201 s:3864 p:0
+G:  s:UN n:3/251bc8 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:EX n:2/604e f:yIqob t:EX d:EX/0 a:0 v:0 r:4 m:200 p:1
+ H: s:EX f:H e:0 p:0 [(none)] init_journal+0x205/0x630 [gfs2]
+ I: n:8/24654 t:8 f:0x00 d:0x00000201 s:24 p:0
+G:  s:SH n:5/2025 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
+ I: n:5/8229 t:4 f:0x00 d:0x00000201 s:3864 p:0
+G:  s:UN n:3/4cd190 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/3ded65 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/2026 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/3af2f6 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/1f26ea f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:2/635d f:Iob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:1
+ I: n:18/25437 t:8 f:0x00 d:0x00000201 s:7968 p:2
+G:  s:UN n:2/2027 f:ILon t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:5/6156 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
+ I: n:11/24918 t:8 f:0x00 d:0x00000000 s:0 p:0
 G:  s:SH n:5/635c f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
  H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
  I: n:17/25436 t:8 f:0x00 d:0x00000201 s:24 p:0
+G:  s:UN n:3/3cef40 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:2/6156 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/15e76 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/37f887 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:5/604e f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
+ I: n:8/24654 t:8 f:0x00 d:0x00000201 s:24 p:0
+G:  s:UN n:3/1140d6 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
 G:  s:UN n:3/1d2a9e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/1c2c78 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:UN n:3/b4bf2 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:2/635d f:Iob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:1
- I: n:18/25437 t:8 f:0x00 d:0x00000201 s:7968 p:2
-G:  s:UN n:3/1a302c f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
-G:  s:SH n:2/403c f:Iqobn t:SH d:EX/0 a:0 v:0 r:4 m:200 p:0
- H: s:SH f:eEcH e:0 p:0 [(none)] gfs2_fill_super+0x44d/0x900 [gfs2]
+G:  s:UN n:3/47dad7 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:5/403c f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
  I: n:3/16444 t:8 f:0x00 d:0x00000200 s:33554432 p:0
+G:  s:UN n:3/1c2c78 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/65534 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:5/604f f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
+ I: n:9/24655 t:8 f:0x00 d:0x00000200 s:1048576 p:0
+G:  s:UN n:3/d483e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/3fe9af f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/458e8 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:2/12 f:Iqobn t:SH d:EX/0 a:0 v:0 r:4 m:200 p:0
+ H: s:SH f:eEcH e:0 p:0 [(none)] gfs2_fill_super+0x44d/0x900 [gfs2]
+ I: n:1/18 t:8 f:0x00 d:0x00000200 s:33554432 p:0
+G:  s:UN n:3/193206 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/41e5f9 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/c4a18 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/3203a9 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/3301ce f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/46dcb2 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/310584 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/34fe18 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/133d22 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/39f4d1 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/281637 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/4dcfb5 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:5/6360 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
+ I: n:19/25440 t:8 f:0x00 d:0x00000000 s:0 p:0
+G:  s:UN n:3/2f093a f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:2/6362 f:Io t:SH d:EX/0 a:0 v:0 r:3 m:200 p:52
+ I: n:1/25442 t:8 f:0x00 d:0x00000000 s:104857600 p:12740
+G:  s:UN n:3/2e0b15 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/42e41e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/20250f f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/48d8fc f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/403b f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/35fc3d f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:5/6362 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_create_inode+0x6da/0xba0 [gfs2]
+ I: n:1/25442 t:8 f:0x00 d:0x00000000 s:104857600 p:12740
+G:  s:SH n:4/0 f:Ib t:SH d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:5/2027 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
+ I: n:2/8231 t:8 f:0x00 d:0x00000200 s:33554432 p:0
+G:  s:SH n:5/6259 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
+ I: n:14/25177 t:8 f:0x00 d:0x00000000 s:0 p:0
+G:  s:UN n:3/15396e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:EX n:2/604f f:Iqob t:EX d:EX/0 a:0 v:0 r:4 m:200 p:257
+ H: s:EX f:H e:0 p:0 [(none)] get_tree_bdev+0x133/0x1d0
+ I: n:9/24655 t:8 f:0x00 d:0x00000200 s:1048576 p:0
+G:  s:UN n:3/3bf11b f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/29145c f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/222159 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/271812 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/4ad546 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
 G:  s:UN n:3/163794 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/b4bf2 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:2/4039 f:ILb t:SH d:EX/0 a:0 v:0 r:2 m:200 p:1
+G:  s:SH n:5/6361 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_lookup_root+0x2c/0xc0 [gfs2]
+ I: n:20/25441 t:4 f:0x00 d:0x00000001 s:3864 p:0
+G:  s:UN n:3/25c9c f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/1042b0 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:2/6361 f:ILob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:1
+ I: n:20/25441 t:4 f:0x00 d:0x00000001 s:3864 p:0
+G:  s:UN n:3/49d721 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:EX n:3/6050 f:yIob t:EX d:EX/0 a:0 v:0 r:3 m:200 p:0
+ R: n:24656 f:90000000 b:38623/38623 i:12 q:0 r:0 e:64432
+  L: f:00 b:38623 i:12
+G:  s:SH n:2/2025 f:Iob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:1
+ I: n:5/8229 t:4 f:0x00 d:0x00000201 s:3864 p:0
+G:  s:UN n:3/231f7e f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/143b48 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/3eeb8a f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/123efc f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/212334 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/1a302c f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/a4dcc f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/e4664 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:SH n:5/12 f:Iqob t:SH d:EX/0 a:0 v:0 r:3 m:200 p:0
+ H: s:SH f:EH e:0 p:0 [(none)] gfs2_dir_search+0xd2/0x100 [gfs2]
+ I: n:1/18 t:8 f:0x00 d:0x00000200 s:33554432 p:0
+G:  s:UN n:3/44e068 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/45de8d f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:2/403c f:ILon t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
+G:  s:UN n:3/241da3 f:on t:UN d:EX/0 a:0 v:0 r:2 m:200 p:0
 ```
