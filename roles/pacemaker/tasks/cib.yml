@@ -3,6 +3,8 @@
   ansible.builtin.shell: >
     cibadmin --scope {{ item }} --query > /etc/pacemaker/{{ item }}.xml
   changed_when: false
+  failed_when: pacemaker_config_query.rc not in [0, 105]
+  register: pacemaker_config_query
   loop: '{{ pacemaker_scopes }}'
 
 - name: Change pacemaker configuration
@@ -15,6 +17,13 @@
   when: pacemaker_config[item] is defined
   loop: '{{ pacemaker_scopes }}'
   register: pacemaker_config_changes
+
+- name: Clear fencing topologies if changed
+  ansible.builtin.command: pcs stonith level clear
+  changed_when: true
+  when: pacemaker_config_changes.results |
+    selectattr('item', 'eq', 'fencing-topology') |
+    map(attribute='changed') | first
 
 - name: Update pacemaker configuration
   ansible.builtin.command: >
